@@ -1,0 +1,26 @@
+{
+  "name": "nordurljos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Norðurljós — Iceland aurora hunter PWA + API proxy",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @nordurljos/server & npm run dev -w @nordurljos/web; wait",
+    "build": "npm run build -w @nordurljos/web && npm run build -w @nordurljos/server",
+    "start": "npm run start -w @nordurljos/server",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "~5.9.2",
+    "vitest": "^5.1.0"
+  }
+}

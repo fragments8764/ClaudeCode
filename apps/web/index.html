@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" style="background:#05070d;color-scheme:dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#05070d" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Iceland aurora hunter: darkness, moon, clouds and space weather in one go/no-go." />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Norðurljós</title>
+    <script>
+      // Apply the saved theme before first paint so night vision is never hit by a flash.
+      try {
+        var s = JSON.parse(localStorage.getItem('nordurljos-settings') || '{}');
+        var t = (s.state && s.state.theme) || 'dark';
+        document.documentElement.dataset.theme = t;
+        if (t === 'red') {
+          document.documentElement.style.background = '#000';
+          document.querySelector('meta[name=theme-color]').setAttribute('content', '#000000');
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body style="background:inherit;margin:0">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
