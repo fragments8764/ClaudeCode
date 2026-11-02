@@ -55,6 +55,15 @@ export const SOURCES = {
     staleMs: 3 * 60 * MIN,
     timeoutMs: 15000,
   },
+  'noaa-ovation': {
+    id: 'noaa-ovation',
+    name: 'NOAA OVATION aurora forecast',
+    attribution: 'NOAA SWPC OVATION Prime model',
+    homepage: 'https://www.swpc.noaa.gov/products/aurora-30-minute-forecast',
+    ttlMs: 5 * MIN,
+    staleMs: 3 * 60 * MIN,
+    timeoutMs: 20000,
+  },
   'open-meteo': {
     id: 'open-meteo',
     name: 'Open-Meteo forecast',

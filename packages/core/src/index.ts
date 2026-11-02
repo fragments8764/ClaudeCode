@@ -5,3 +5,5 @@ export * from './freshness';
 export * from './parse/util';
 export * from './parse/noaa';
 export * from './parse/clouds';
+export * from './parse/ovation';
+export * from './score';

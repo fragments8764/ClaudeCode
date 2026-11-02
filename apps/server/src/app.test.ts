@@ -26,6 +26,7 @@ const ALL = {
   [UPSTREAM.rtswMag]: fx('rtsw-mag.json'),
   'https://api.open-meteo.com/': fx('open-meteo.json'),
   'https://api.met.no/': fx('metno-complete.json'),
+  [UPSTREAM.ovation]: fx('ovation.json'),
 };
 
 describe('API', () => {
@@ -84,5 +85,31 @@ describe('API', () => {
     const body = await (await app.request('/api/health')).json();
     expect(body.status).toBe('degraded');
     expect(body.sources.find((s: { id: string }) => s.id === 'noaa-kp').lastError).toContain('503');
+  });
+
+  it('GET /api/aurora returns OVATION at the location', async () => {
+    const res = await makeApp(ALL).request('/api/aurora?lat=63.42&lon=-19');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.overhead).toBeGreaterThanOrEqual(0);
+    expect(body.data.visible).toBeGreaterThanOrEqual(body.data.overhead);
+  });
+
+  it('GET /api/score composes everything with a verdict and outlook', async () => {
+    const res = await makeApp(ALL).request('/api/score?lat=64.1466&lon=-21.9426');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.score).toBeGreaterThanOrEqual(0);
+    expect(body.data.score).toBeLessThanOrEqual(100);
+    expect(body.data.limitingLabel).toBe('Clouds'); // fixture is 100% overcast
+    expect(Array.isArray(body.data.outlook)).toBe(true);
+    expect(body.meta.sources).toHaveLength(7);
+  });
+
+  it('score still works when OVATION and clouds are down', async () => {
+    const res = await makeApp({ ...ALL, [UPSTREAM.ovation]: new Error(), 'https://api.open-meteo.com/': new Error(), 'https://api.met.no/': new Error() }).request('/api/score?lat=64.15&lon=-21.95');
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data.missing).toEqual(expect.arrayContaining(['cloud', 'ovation']));
   });
 });
