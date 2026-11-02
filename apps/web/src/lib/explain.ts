@@ -70,20 +70,10 @@ export function moonFactor(illumination: number, altitudeDeg: number): Factor {
 
 export const levelColor: Record<Level, string> = {
   good: 'text-good',
-  ok: 'text-ok',
-  bad: 'text-bad',
-  unknown: 'text-muted',
-};
-export const levelDot: Record<Level, string> = {
-  good: 'bg-good',
-  ok: 'bg-ok',
-  bad: 'bg-bad',
-  unknown: 'bg-muted',
+  ok: 'text-fair',
+  bad: 'text-poor',
+  unknown: 'text-ink-3',
 };
 export const levelLabel: Record<Level, string> = { good: 'Good', ok: 'Fair', bad: 'Poor', unknown: 'Unknown' };
 
-/** Local clock time "HH:MM" (Iceland = UTC, no DST). */
-export function hhmm(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
+export { hhmm } from './format';

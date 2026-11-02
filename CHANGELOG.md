@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.3.0 — Design overhaul, step 1 (2026-11-02)
+
+### Added
+- **Design system** (`apps/web/src/design/`): tokens for colour, glass, radius, spacing, shadow, motion, type and layers;
+  Night Vision / reduced-transparency / low-power / refraction modes as `<html>` attributes; JS springs and score colour ramp.
+- **Liquid glass** recipe with gradient edge highlight, tilt/drag-driven specular sheen (DeviceOrientation, iOS permission on first tap),
+  SVG displacement refraction on Chromium with plain-blur fallback elsewhere, live aurora tint, solid frosted fallback.
+- **Live aurora sky:** WebGL1 shader (curtains with height-stratified colour, rays, twinkling stars, tilt parallax) driven by Kp, Bz,
+  solar-wind speed and the score; 60 fps cap, paused when hidden, 30 fps/half-res in Low power, still frame under Reduce motion,
+  CSS fallback without WebGL.
+- **Tonight hero:** giant thin score ring (spring count-up, rotating gradient grey→teal→green→magenta, glow), one-line verdict,
+  limiting factor, freshness; three glass stat pills that morph (shared element) into **Cloud / Activity / Moon sheets**;
+  best-window card with live countdown.
+- **Floating glass tab bar** (Tonight · Map · Cameras · Space) with a sliding liquid pill; spring tab transitions; hash deep links.
+- **Draggable bottom sheets** (peek/half/full, spring + rubber-band, flick to dismiss, Esc/close button, focus management).
+- **Settings:** Night Vision, Reduce motion, Reduce transparency, Low power, Haptics, Units (°C·m/s / °F·mph), Language (EN; others
+  marked coming), alert thresholds (saved for push in Phase 6), live data-source status and credits.
+- **Space tab** re-skinned: Kp bars (24 h + 3-day), Bz / speed / density sparklines with gradient fills and glowing current dot.
+- Glass press feedback (0.96 scale, glow ripple, haptic), glass skeleton loaders, offline glass toast, `?demo=` design preview.
+- Lucide thin-stroke icons; Inter Variable self-hosted (SF Pro used where the OS provides it).
+
+### Changed
+- Phase 1 screens replaced by the new system. Night mode renamed **Night Vision** (settings migrate automatically).
+
+### Known limitations
+- Map and Cameras tabs are calm placeholders (built in their phases).
+- Verified in headless Chromium only (iPhone-sized viewport). **Not yet tested on real iOS Safari / Android Chrome**; headless uses
+  software WebGL so frame rates there are not representative.
+- JS bundle grew to ~160 KB gzip (motion + icons); code-splitting comes with the performance pass.
+- Celebration moment, pull-to-refresh ribbon, onboarding, share card, ambient mode, sound: step 3.
+
+## 0.2.0 — Phase 2 data (2026-11-02)
+
+### Added
+- OVATION parser + `ovationAt()` (overhead and distance-weighted "visible within ~800 km").
+- **Aurora Score** (`packages/core/src/score.ts`): `100 × activity × sky × dark × moon`, documented tunable `WEIGHTS`, verdict,
+  limiting factor, missing-input reporting; hourly outlook + best 2-hour window.
+- `/api/aurora`, `/api/score`.
+
 ## 0.1.0 — Phase 1: Foundation (2026-11-02)
 
 ### Added

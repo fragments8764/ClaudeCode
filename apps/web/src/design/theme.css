@@ -1,0 +1,27 @@
+/* Tailwind aliases → design tokens. Utilities like bg-glass, text-ink-2, rounded-lg map here. */
+@theme inline {
+  --color-base-0: var(--c-base-0);
+  --color-base-1: var(--c-base-1);
+  --color-base-2: var(--c-base-2);
+  --color-ink: var(--c-text);
+  --color-ink-2: var(--c-text-2);
+  --color-ink-3: var(--c-text-3);
+  --color-emerald: var(--c-emerald);
+  --color-teal: var(--c-teal);
+  --color-violet: var(--c-violet);
+  --color-magenta: var(--c-magenta);
+  --color-good: var(--c-good);
+  --color-fair: var(--c-fair);
+  --color-poor: var(--c-poor);
+  --color-accent: var(--c-accent);
+  --color-glass: var(--glass-tint);
+  --color-glass-strong: var(--glass-tint-strong);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}

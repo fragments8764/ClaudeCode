@@ -6,12 +6,17 @@ A mobile-first PWA for aurora hunting in Iceland. It combines darkness, moon, cl
 clear answer, built to be used outdoors at night, in the cold, with gloves on and patchy signal.
 
 <p>
-  <img src="docs/home-dark.png" width="230" alt="Home screen, dark theme">
-  <img src="docs/home-red.png" width="230" alt="Home screen, red night-vision mode">
-  <img src="docs/location-sheet.png" width="230" alt="Location picker">
+  <img src="docs/tonight-live.png" width="200" alt="Tonight screen with live data">
+  <img src="docs/tonight-storm-demo.png" width="200" alt="Tonight screen, storm demo preview">
+  <img src="docs/sheet-clouds.png" width="200" alt="Cloud detail sheet">
+  <img src="docs/night-vision.png" width="200" alt="Night Vision mode">
 </p>
 
-**Status:** Phase 1 (Foundation) done. See [CHANGELOG.md](CHANGELOG.md) and the [roadmap](#roadmap).
+**Status:** Phase 1 (Foundation) ✅ · Phase 2 data (Aurora Score, OVATION) ✅ · Design overhaul step 1 (design system, liquid glass,
+tab bar, Tonight hero, live aurora sky) ✅ — awaiting design review. See [CHANGELOG.md](CHANGELOG.md) and the [roadmap](#roadmap).
+
+**Design preview:** append `?demo=quiet`, `?demo=active` or `?demo=storm` to the URL to preview how the sky, ring and verdict look
+on stronger nights. It is clearly badged "not live data".
 
 ## Quick start
 
@@ -68,6 +73,25 @@ Put it behind HTTPS, because PWA install, GPS and push all require HTTPS.
 needs to export `createApp(...)`, with the web `dist/` served by Pages. The in-memory cache works per isolate; swap it for
 the Cache API or KV for cross-isolate caching. This will be wired up when we pick the host.
 
+## Design system
+
+All visual decisions live in `apps/web/src/design/`:
+
+| File | What |
+| --- | --- |
+| `tokens.css` | Colour (midnight base, aurora accents), glass recipe, radius, spacing, shadow, motion durations, type, z-layers. Mode switches on `<html>`: `data-mode="night"`, `data-transparency="reduced"`, `data-power="low"`, `data-refract`. |
+| `tokens.ts` | Springs (`stiffness 300, damping 30`), press scale, stagger, score colour ramp (grey → teal → green → magenta). |
+| `theme.css` | Tailwind aliases (`text-ink-2`, `bg-glass`, `rounded-xl`, …) → tokens. |
+| `glass.css` | Liquid glass: blur 32px + saturate 170%, 8% tint + live aurora tint, 1px gradient edge highlight, tilt-driven specular sheen, Chromium-only SVG refraction, glass skeleton shimmer, text scrim. |
+
+Components (`src/ui/`): `Glass`, `Press` (0.96 press, glow ripple, haptic), `TabBar` (morphing liquid pill), `Sheet` (peek/half/full, spring +
+rubber-band, drag handle), `ScoreRing`, `StatPill`/`StatHeader` (shared-element morph), `Sparkline`, `Toggle`, `Segmented`.
+The sky (`src/sky/`) is a WebGL1 shader driven by live Kp / Bz / solar-wind speed (`skyParams.ts`), with a CSS fallback.
+
+Accessibility & comfort: Reduce motion (system/on/off → `MotionConfig`), Reduce transparency (system/on/off, honours
+`prefers-reduced-transparency`), Low power (30 fps half-res sky, lighter glass, no sheen/refraction), Night Vision (all-red tokens,
+dimmed sky, set before first paint), 48px+ targets, screen-reader labels on every control and chart.
+
 ## Architecture
 
 ```
@@ -92,6 +116,8 @@ apps/web          React 19 + Vite + Tailwind 4 + React Query + Zustand + vite-pl
 | --- | --- | --- |
 | `GET /api/space-weather` | Kp 5 min, forecast 15 min, solar wind 1 min | Kp now / next-24 h peak / series, G-scale, latest speed/density/Bt/Bz, 15-min Bz average, 6 h series (5-min buckets), spacecraft. |
 | `GET /api/clouds?lat=&lon=` | 10–15 min | Coordinates are snapped to 0.05° (~5 km) **before** going upstream. Returns consensus layers, effective %, confidence, 48 h hourly, temperature and wind. |
+| `GET /api/aurora?lat=&lon=` | 5 min | NOAA OVATION at the snapped location: `overhead` and distance-weighted `visible` (aurora up to ~800 km away, low on the horizon). |
+| `GET /api/score?lat=&lon=` | per source | Composite Aurora Score (same pure function as the app), verdict, limiting factor, factors, missing inputs, 18 h outlook and best 2 h window. For widgets, share cards and alerts. |
 | `GET /api/health` | none | Per-source breaker state, last success/error, latency, request and hit counts. UI: `#/health`. |
 
 Every response carries `meta.sources[]` with `ok`, `stale` and `fetchedAt`, so the UI can always show data age and credits.
@@ -114,7 +140,8 @@ If one source fails, the endpoint returns partial data instead of an error. Clou
 | NOAA RTSW plasma | `…/json/rtsw/rtsw_wind_1m.json` | ✅ ACE + IMAP + SOLAR1 mixed; we use the `active` one |
 | NOAA RTSW IMF | `…/json/rtsw/rtsw_mag_1m.json` | ✅ Bz in GSM |
 | ~~NOAA products/solar-wind/*~~ | `…/products/solar-wind/plasma-2-hour.json` etc. | ❌ **404, removed.** Do not use. |
-| NOAA OVATION | `…/json/ovation_aurora_latest.json` | ✅ verified, ~900 KB. Will be used in Phase 2/3 |
+| NOAA OVATION | `…/json/ovation_aurora_latest.json` | ✅ ~900 KB, 1° grid; parsed once per 5 min server-side |
+| IMO (vedur.is) | `api.vedur.is` (OpenAPI: weather, CAP warnings, …) | ✅ Public API. **No aurora-forecast endpoint** (web page only → we link out). Ceilometer cloud obs (`/weather/observations/aws/raw/cloud/1min/latest`) and CAP warnings planned for "Is it clear?" and the safety layer |
 | Open-Meteo | `api.open-meteo.com/v1/forecast` | ✅ low/mid/high cloud. Occasional 429 from shared IPs, so the cache matters |
 | MET Norway | `api.met.no/weatherapi/locationforecast/2.0/complete` | ✅ low/mid/high in `/complete` only. Needs an identifying User-Agent |
 | Sun & moon | SunCalc, on device | ✅ |
@@ -124,7 +151,9 @@ Attribution is shown in the app footer. Open-Meteo and MET Norway data are CC BY
 ## Roadmap
 
 1. ✅ **Foundation:** scaffold, theming, location, astronomy, API proxy
-2. **Data:** OVATION at your location, Aurora Score (0–100, pure + documented weights + tests), verdict + limiting factor, IMO aurora forecast
+2. ✅ **Data:** OVATION at your location, Aurora Score (0–100, pure + documented weights + tests), verdict + limiting factor, best window
+   - ✅ **Design overhaul step 1:** design system, liquid glass, tab bar, Tonight hero + live aurora sky, sheets, Settings, Space re-skin
+   - ⏳ Step 2: re-skin Map + Cameras as they're built · Step 3: motion polish (celebration, pull-to-refresh ribbon), onboarding, share card · Step 4: perf + a11y pass on real iOS/Android
 3. **Map:** MapLibre, terminator, OVATION + cloud layers, 48 h time slider
 4. **Cameras:** config-driven camera wall, status, attribution
 5. **Best-spot finder, night planner, roads and safety**

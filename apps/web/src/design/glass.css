@@ -1,0 +1,104 @@
+/*
+ * LIQUID GLASS
+ * Recipe: backdrop blur(24–40px) saturate(160–180%) · 6–12% white tint (+ live aurora tint)
+ *         · 1px gradient inner highlight (bright top-left) · layered soft shadow · large radii
+ *         · specular sheen that follows device tilt / finger drag (--tilt-x/y)
+ *         · optional SVG displacement refraction on Chromium (.glass-refract)
+ * Keep simultaneous backdrop-filters few: put glass on containers, not on every child.
+ */
+.glass {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(var(--glass-tint-aurora), var(--glass-tint-aurora)), var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--r-lg);
+}
+.glass-strong {
+  background: linear-gradient(var(--glass-tint-aurora), var(--glass-tint-aurora)), var(--glass-tint-strong);
+}
+
+/* 1px inner highlight: brighter at top-left, fading round the edge. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    calc(135deg + var(--tilt-x) * 25deg),
+    var(--glass-edge-hi) 0%,
+    var(--glass-edge-lo) 38%,
+    var(--glass-edge-lo) 70%,
+    rgb(255 255 255 / 0.1) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+/* Specular sheen — a soft highlight that drifts with tilt. */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 70% at calc(25% + var(--tilt-x) * 45%) calc(-10% + var(--tilt-y) * 35%),
+    rgb(255 255 255 / 0.09),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+:root[data-mode='night'] .glass::after {
+  background: radial-gradient(120% 70% at calc(25% + var(--tilt-x) * 45%) calc(-10% + var(--tilt-y) * 35%), rgb(200 30 30 / 0.07), transparent 60%);
+}
+:root[data-power='low'] .glass::after,
+:root[data-transparency='reduced'] .glass::after {
+  display: none;
+}
+
+/* Refraction (Chromium supports url() in backdrop-filter; others ignore this rule). */
+:root[data-refract]:not([data-power='low']):not([data-transparency='reduced']) .glass-refract {
+  -webkit-backdrop-filter: url(#lg-refract) blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: url(#lg-refract) blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+.pill {
+  border-radius: var(--r-pill);
+}
+
+/* Text placed directly on the live sky gets a soft scrim so it always passes AA. */
+.on-sky {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55), 0 0 24px rgb(0 0 0 / 0.45);
+}
+
+/* Glass skeleton shimmer (no spinners). */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-tint);
+  border-radius: var(--r-sm);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.08), transparent);
+  animation: shimmer 1.4s var(--ease-out) infinite;
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

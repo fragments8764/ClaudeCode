@@ -67,3 +67,12 @@ export interface Health {
     cacheHits: number;
   }[];
 }
+
+export interface AuroraAt {
+  location: { lat: number; lon: number };
+  overhead: number;
+  visible: number;
+  peakLat: number;
+  peakLon: number;
+  forecastTime: string | null;
+}

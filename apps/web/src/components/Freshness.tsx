@@ -7,7 +7,7 @@ export function Freshness({ at, warnMin = 15, stale = false, label = 'updated' }
   const age = ageMinutes(at, now);
   const old = stale || age === null || age > warnMin;
   return (
-    <span className={`text-xs ${old ? 'text-ok' : 'text-muted'}`} title={at ?? undefined}>
+    <span className={`text-xs ${old ? 'text-fair' : 'text-ink-3'}`} title={at ?? undefined}>
       {label} {formatAge(at, now)}
       {stale && ' · cached'}
     </span>

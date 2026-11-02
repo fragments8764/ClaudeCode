@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const BG = '#05070d';
+const BG = '#02040a';
 
 export default defineConfig({
   plugins: [

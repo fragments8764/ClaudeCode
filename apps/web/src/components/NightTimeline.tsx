@@ -13,12 +13,12 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
   const sky = `linear-gradient(to right, ${samples
     .map((s) => {
       const light = 1 - darknessFactor(s.sunAlt);
-      return `color-mix(in srgb, var(--muted) ${Math.round(light * 75)}%, var(--surface-2)) ${pct(s.time).toFixed(1)}%`;
+      return `color-mix(in srgb, rgb(148 163 184) ${Math.round(light * 55)}%, rgb(255 255 255 / 0.04)) ${pct(s.time).toFixed(1)}%`;
     })
     .join(', ')})`;
 
   const moon = `linear-gradient(to right, ${samples
-    .map((s) => `color-mix(in srgb, var(--accent-2) ${s.moonAlt > 0 ? Math.round(25 + illumination * 60) : 0}%, transparent) ${pct(s.time).toFixed(1)}%`)
+    .map((s) => `color-mix(in srgb, var(--c-violet) ${s.moonAlt > 0 ? Math.round(25 + illumination * 60) : 0}%, transparent) ${pct(s.time).toFixed(1)}%`)
     .join(', ')})`;
 
   const ticks: number[] = [];
@@ -34,12 +34,12 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
     <figure aria-label="Timeline for the next 18 hours: darkness, moon and cloud cover">
       <div className="relative space-y-1.5">
         <Row label="Sky">
-          <div className="h-7 rounded-lg" style={{ background: sky }} />
+          <div className="h-7 rounded-[10px]" style={{ background: sky }} />
           {plan.darkIntervals.map((iv) => {
             const l = Math.max(0, pct(iv.start));
             const r = Math.min(100, pct(iv.end));
             return r > l ? (
-              <div key={iv.start} className="absolute inset-y-0 rounded-lg border-2 border-accent/70" style={{ left: `${l}%`, width: `${r - l}%` }} title={`Dark ${hhmm(iv.start)}–${hhmm(iv.end)}`} />
+              <div key={iv.start} className="absolute inset-y-0 rounded-[10px] border-2 border-[rgb(var(--aurora-rgb)/0.8)]" style={{ left: `${l}%`, width: `${r - l}%` }} title={`Dark ${hhmm(iv.start)}–${hhmm(iv.end)}`} />
             ) : null;
           })}
         </Row>
@@ -54,7 +54,7 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
               return (
                 <div
                   key={c.time}
-                  className="absolute bottom-0 rounded-sm bg-muted/60"
+                  className="absolute bottom-0 rounded-sm bg-[rgb(255_255_255/0.22)]"
                   style={{ left: `${l}%`, width: `calc(${Math.min(w, 100 - l)}% - 1px)`, height: `${Math.max(4, c.total ?? 0)}%` }}
                   title={`${hhmm(c.time)}: ${c.total ?? '?'}% cloud`}
                 />
@@ -62,7 +62,7 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
             })}
           </div>
         </Row>
-        <div className="relative ml-12 h-4 text-[11px] text-muted">
+        <div className="relative ml-12 h-4 text-[11px] text-ink-3">
           {ticks.map((t) => (
             <span key={t} className="absolute -translate-x-1/2 tabular-nums" style={{ left: `${pct(new Date(t).toISOString())}%` }}>
               {hhmm(new Date(t).toISOString())}
@@ -70,10 +70,10 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
           ))}
         </div>
       </div>
-      <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm border-2 border-accent/70 align-middle" />dark enough (sun &lt; −12°)</span>
-        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm bg-accent-2/70 align-middle" />moon up</span>
-        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm bg-muted/60 align-middle" />cloud %</span>
+      <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm border-2 border-[rgb(var(--aurora-rgb)/0.8)] align-middle" />dark enough (sun &lt; −12°)</span>
+        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm bg-violet/70 align-middle" />moon up</span>
+        <span><span className="mr-1 inline-block h-2 w-3 rounded-sm bg-[rgb(255_255_255/0.22)] align-middle" />cloud %</span>
       </figcaption>
     </figure>
   );
@@ -82,7 +82,7 @@ export function NightTimeline({ plan, clouds, illumination }: { plan: NightPlan;
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 shrink-0 text-right text-[11px] uppercase tracking-wide text-muted">{label}</span>
+      <span className="w-10 shrink-0 text-right text-[11px] uppercase tracking-wide text-ink-3">{label}</span>
       <div className="relative flex-1">{children}</div>
     </div>
   );

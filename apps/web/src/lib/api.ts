@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { snapCoord } from '@nordurljos/core';
-import type { Clouds, Envelope, Health, SpaceWeather } from './types';
+import type { AuroraAt, Clouds, Envelope, Health, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -65,6 +65,12 @@ export function useClouds(lat: number, lon: number) {
   const sLat = snapCoord(lat);
   const sLon = snapCoord(lon);
   return usePersistedQuery<Envelope<Clouds>>(`clouds:${sLat},${sLon}`, `/api/clouds?lat=${sLat}&lon=${sLon}`, 5 * 60_000);
+}
+
+export function useAurora(lat: number, lon: number) {
+  const sLat = snapCoord(lat);
+  const sLon = snapCoord(lon);
+  return usePersistedQuery<Envelope<AuroraAt>>(`aurora:${sLat},${sLon}`, `/api/aurora?lat=${sLat}&lon=${sLon}`, 5 * 60_000);
 }
 
 export function useHealth() {

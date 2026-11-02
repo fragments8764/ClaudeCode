@@ -1,0 +1,151 @@
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  NORÐURLJÓS DESIGN SYSTEM — TOKENS
+ *  Single source of truth for colour, glass, radius, spacing, shadow, motion.
+ *  Components must use these variables (or the Tailwind aliases in theme.css),
+ *  never raw values. Modes are attribute switches on <html>:
+ *    data-mode="night"           Night Vision (dim red, preserves dark adaptation)
+ *    data-transparency="reduced" solid frosted surfaces, no backdrop blur
+ *    data-power="low"            fewer GPU effects, static sky
+ *    data-refract                SVG displacement refraction (Chromium only)
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+:root {
+  /* — Base — deep midnight navy → black */
+  --c-base-0: #02040a;
+  --c-base-1: #060b18;
+  --c-base-2: #0b1226;
+
+  /* — Text — */
+  --c-text: #eef3fb;
+  --c-text-2: rgb(238 243 251 / 0.66);
+  --c-text-3: rgb(238 243 251 / 0.42);
+
+  /* — Aurora accents (use sparingly) — */
+  --c-emerald: #4ade80;
+  --c-teal: #2dd4bf;
+  --c-violet: #a78bfa;
+  --c-magenta: #f472b6;
+  --c-grey: #94a3b8;
+
+  /* — Semantic — */
+  --c-good: var(--c-emerald);
+  --c-fair: #facc15;
+  --c-poor: #fb7185;
+  --c-accent: var(--c-teal);
+
+  /* Live aurora tint (rgb triplet), updated at runtime from the score/sky. */
+  --aurora-rgb: 45 212 191;
+
+  /* — Glass — */
+  --glass-blur: 32px;
+  --glass-saturate: 170%;
+  --glass-tint: rgb(255 255 255 / 0.08);
+  --glass-tint-strong: rgb(255 255 255 / 0.12);
+  --glass-tint-aurora: rgb(var(--aurora-rgb) / 0.05);
+  --glass-solid: rgb(14 20 36 / 0.94); /* reduced transparency */
+  --glass-edge-hi: rgb(255 255 255 / 0.38); /* top-left highlight */
+  --glass-edge-lo: rgb(255 255 255 / 0.04);
+  --glass-scrim: rgb(2 4 10 / 0.28); /* auto-scrim under text for AA contrast */
+
+  /* — Radius — */
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* — Spacing (4-pt) — */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --tap: 48px; /* minimum target — glove friendly */
+  --tap-lg: 56px;
+
+  /* — Shadow (layered, soft) — */
+  --shadow-glass: 0 1px 1px rgb(0 0 0 / 0.12), 0 8px 24px -6px rgb(0 0 0 / 0.45), 0 24px 64px -16px rgb(0 0 0 / 0.55);
+  --shadow-float: 0 2px 4px rgb(0 0 0 / 0.2), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  --glow: 0 0 24px rgb(var(--aurora-rgb) / 0.45);
+
+  /* — Motion — springs live in tokens.ts; these are for CSS-only transitions. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(0, 0.25 7%, 0.72 16%, 1.01 26%, 1.08 32%, 1.04 41%, 0.99 52%, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+  --press-scale: 0.96;
+
+  /* — Type — */
+  --font-sans: 'SF Pro Text', -apple-system, 'Inter Variable', Inter, system-ui, sans-serif;
+  --font-display: 'SF Pro Display', -apple-system, 'Inter Variable', Inter, system-ui, sans-serif;
+  --w-light: 300;
+  --w-medium: 500;
+
+  /* — Layers — */
+  --z-sky: 0;
+  --z-content: 10;
+  --z-chrome: 30;
+  --z-sheet: 40;
+  --z-toast: 50;
+
+  /* Device tilt (−1…1), written by useTilt() without React re-renders. */
+  --tilt-x: 0;
+  --tilt-y: 0;
+
+  color-scheme: dark;
+}
+
+/* ── Night Vision: everything dim red. No blue/white light at all. ───────────── */
+:root[data-mode='night'] {
+  --c-base-0: #000;
+  --c-base-1: #050000;
+  --c-base-2: #0a0101;
+  --c-text: #d63a3a;
+  --c-text-2: rgb(214 58 58 / 0.85);
+  --c-text-3: rgb(214 58 58 / 0.66);
+  --c-emerald: #c22a2a;
+  --c-teal: #b02626;
+  --c-violet: #8c1d1d;
+  --c-magenta: #e04343;
+  --c-grey: #6e1a1a;
+  --c-good: #e04343;
+  --c-fair: #a82424;
+  --c-poor: #6e1a1a;
+  --aurora-rgb: 170 30 30;
+  --glass-tint: rgb(120 0 0 / 0.1);
+  --glass-tint-strong: rgb(140 0 0 / 0.16);
+  --glass-solid: rgb(18 2 2 / 0.95);
+  --glass-edge-hi: rgb(214 58 58 / 0.35);
+  --glass-edge-lo: rgb(214 58 58 / 0.04);
+  --glass-scrim: rgb(0 0 0 / 0.4);
+  --glow: 0 0 18px rgb(170 30 30 / 0.4);
+}
+
+/* ── Reduced transparency (user setting or OS) → solid frosted fallback ─────── */
+:root[data-transparency='reduced'] {
+  --glass-blur: 0px;
+  --glass-tint: var(--glass-solid);
+  --glass-tint-strong: var(--glass-solid);
+  --glass-tint-aurora: transparent;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) {
+    --glass-blur: 0px;
+    --glass-tint: var(--glass-solid);
+    --glass-tint-strong: var(--glass-solid);
+    --glass-tint-aurora: transparent;
+  }
+}
+
+/* ── Low power: lighter blur, no specular/refraction ──────────────────────── */
+:root[data-power='low'] {
+  --glass-blur: 16px;
+  --glass-saturate: 130%;
+}
