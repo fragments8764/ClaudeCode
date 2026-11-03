@@ -29,10 +29,10 @@ import {
   type SolarWindPoint,
 } from '@nordurljos/core';
 import { Fetcher, type FetchResult } from './lib/fetcher';
-import { SOURCES, type SourceId } from './lib/sources';
-import { ConfigLoader, type CameraDef } from './lib/config';
+import { openMeteoHost, openMeteoKey, SOURCES, type SourceId } from './lib/sources';
+import { ConfigLoader, type CameraDef, type FeatureFlag } from './lib/config';
 import { registerExtras, type SendPush } from './routes/extras';
-import type { Spot } from '@nordurljos/core';
+import type { Spot, Weights } from '@nordurljos/core';
 
 export const UPSTREAM = {
   kp: 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json',
@@ -41,7 +41,7 @@ export const UPSTREAM = {
   rtswMag: 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json',
   ovation: 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json',
   openMeteo: (lat: number, lon: number) =>
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `${openMeteoHost()}/v1/forecast?latitude=${lat}&longitude=${lon}${openMeteoKey()}` +
     '&current=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,temperature_2m,apparent_temperature,wind_speed_10m,wind_gusts_10m' +
     '&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&forecast_hours=48&past_hours=3&timezone=GMT&wind_speed_unit=ms',
   metNo: (lat: number, lon: number) => `https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${lat}&lon=${lon}`,
@@ -60,7 +60,7 @@ export interface SourceMeta {
 
 export function meta<T>(id: SourceId, r: PromiseSettledResult<FetchResult<T>>): SourceMeta {
   const s = SOURCES[id];
-  const base = { id: s.id, name: s.name, attribution: s.attribution, homepage: s.homepage };
+  const base = { id: s.id, name: s.name, attribution: s.attribution, homepage: s.homepage, provider: (s as { provider?: string }).provider ?? s.name, ttlSec: s.ttlMs / 1000 };
   if (r.status === 'fulfilled') return { ...base, ok: true, stale: r.value.stale, fetchedAt: r.value.fetchedAt };
   return { ...base, ok: false, stale: false, fetchedAt: null, error: (r.reason as Error)?.message ?? 'failed' };
 }
@@ -114,16 +114,21 @@ export interface AppOptions {
   now?: () => Date;
   /** config/ directory (spots, cameras); null = use `inlineConfig` (tests) */
   configDir?: string | null;
-  inlineConfig?: { spots?: Spot[]; cameras?: CameraDef[] };
+  inlineConfig?: { spots?: Spot[]; cameras?: CameraDef[]; weights?: Partial<Weights>; features?: Record<string, FeatureFlag> };
   /** data/ directory for subscriptions, sightings, VAPID keys; null = memory only */
   dataDir?: string | null;
   vapid?: { publicKey: string; privateKey: string; subject: string } | null;
   sendPush?: SendPush;
+  /** enables /admin and /api/admin/* when set */
+  adminToken?: string | null;
 }
 
-export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), configDir = null, inlineConfig, dataDir = null, vapid = null, sendPush }: AppOptions) {
+export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), configDir = null, inlineConfig, dataDir = null, vapid = null, sendPush, adminToken = null }: AppOptions) {
   const app = new Hono();
   const started = now();
+  const config = new ConfigLoader(configDir, inlineConfig);
+  // assigned once the extras (which own the score-log store) are registered
+  let logScore: (e: { at: string; lat: number; lon: number; score: number; verdict: string; inputs: Record<string, number | null>; weightsVersion: string }) => void = () => {};
 
   // ---- data assemblers (shared by several routes) ----
 
@@ -205,6 +210,8 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
         ...consensus,
         hourly: consensus.hourly.filter((h) => h.time >= tIso).slice(0, 49),
         weather: omv?.extras ?? null,
+        // Automatic fallback: say which source is actually in use when one is down.
+        fallback: !omv ? 'Using MET Norway only: Open-Meteo is unavailable' : !mnv ? 'Using Open-Meteo only: MET Norway is unavailable' : null,
       },
       sources,
     };
@@ -228,13 +235,20 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
 
   app.get('/api/health', (c) => {
     c.header('Cache-Control', 'no-store');
+    const t = now();
     const sources = fetcher.healthReport().map((h) => {
-      const s = SOURCES[h.id as SourceId];
-      return { ...h, attribution: s.attribution, homepage: s.homepage, ttlSeconds: s.ttlMs / 1000 };
+      const s = SOURCES[h.id as SourceId] as (typeof SOURCES)[SourceId] & { provider?: string };
+      const ageSec = h.lastSuccessAt ? Math.round((t.getTime() - new Date(h.lastSuccessAt).getTime()) / 1000) : null;
+      // Sources are fetched on demand: an old lastSuccess with no failures just means nobody asked (idle), not stale.
+      const state =
+        h.breaker === 'open' ? 'down' : h.consecutiveFailures > 0 ? (h.lastSuccessAt && ageSec! * 1000 < s.ttlMs + s.staleMs ? 'stale' : 'down') : h.requests === 0 && !h.lastSuccessAt ? 'idle' : 'ok';
+      return { ...h, provider: s.provider ?? s.name, attribution: s.attribution, homepage: s.homepage, ttlSeconds: s.ttlMs / 1000, expectedRefreshSec: s.ttlMs / 1000, ageSec, state };
     });
-    const degraded = sources.some((s) => s.breaker !== 'closed' || s.consecutiveFailures > 0);
-    return c.json({ status: degraded ? 'degraded' : 'ok', startedAt: started.toISOString(), now: now().toISOString(), cacheEntries: fetcher.cache.size, sources });
+    const degraded = sources.some((s) => s.state === 'down' || s.state === 'stale');
+    return c.json({ status: degraded ? 'degraded' : 'ok', startedAt: started.toISOString(), now: t.toISOString(), cacheEntries: fetcher.cache.size, sources });
   });
+
+  app.get('/api/score-weights', (c) => c.json({ data: config.weights() }));
 
   app.get('/api/space-weather', async (c) => {
     const sw = await spaceWeather();
@@ -245,6 +259,8 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
     const ll = parseLatLon((k) => c.req.query(k));
     if (!ll) return c.json({ error: 'lat and lon query parameters are required and must be valid' }, 400);
     const r = await clouds(ll.lat, ll.lon);
+    // Validation: log the score for active areas (anonymised, ≤ once / 15 min / ~10 km cell; uses cached data).
+    void scoreAt(ll.lat, ll.lon).catch(() => {});
     const metaBlock = { generatedAt: now().toISOString(), sources: r.sources };
     if (!r.data) return c.json({ error: 'All cloud sources unavailable', meta: metaBlock }, 503);
     return c.json({ data: r.data, meta: metaBlock });
@@ -280,7 +296,8 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
     const [sw, cl, au] = await Promise.all([spaceWeather(), clouds(ll.lat, ll.lon), aurora(ll.lat, ll.lon)]);
     const t = now();
     const moon = moonState(t, ll.lat, ll.lon);
-    const result = computeScore({
+    const { weights, version: weightsVersion } = config.weights();
+    const inputs = {
       sunAltDeg: sunAltitudeDeg(t, ll.lat, ll.lon),
       moonAltDeg: moon.altitudeDeg,
       moonIllumination: moon.illumination,
@@ -289,7 +306,9 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
       kp: sw.data.kp.now?.kp ?? null,
       bz: sw.data.solarWind.bzAvg15m,
       speed: sw.data.solarWind.latest?.speed ?? null,
-    });
+    };
+    const result = computeScore(inputs, weights);
+    logScore({ at: t.toISOString(), lat, lon, score: result.score, verdict: result.verdict, inputs, weightsVersion });
     const kpSeries = sw.data.kp.series;
     const outlook = hourlyOutlook(
       (cl.data?.hourly ?? [])
@@ -299,16 +318,17 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
         const m = moonState(d, ll.lat, ll.lon);
         return { sunAlt: sunAltitudeDeg(d, ll.lat, ll.lon), moonAlt: m.altitudeDeg, moonIllumination: m.illumination };
       },
+      weights,
     );
     return {
-      data: { location: ll, ...result, best: bestWindow(outlook), outlook },
+      data: { location: ll, ...result, weightsVersion, best: bestWindow(outlook), outlook },
       sources: [...sw.sources, ...cl.sources, ...au.sources],
       raw: { sw: sw.data, clouds: cl.data, aurora: au.data },
     };
   }
 
-  const config = new ConfigLoader(configDir, inlineConfig);
-  const services = registerExtras(app, { fetcher, now, config, dataDir, vapid, sendPush, spaceWeather, clouds, aurora, scoreAt, parseLatLon, meta });
+  const services = registerExtras(app, { fetcher, now, config, dataDir, vapid, sendPush, spaceWeather, clouds, aurora, scoreAt, parseLatLon, meta, adminToken });
+  logScore = services.logScore;
 
   app.notFound((c) => (c.req.path.startsWith('/api/') ? c.json({ error: 'not found' }, 404) : c.text('Not found', 404)));
   app.onError((err, c) => {

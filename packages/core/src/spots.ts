@@ -1,7 +1,7 @@
 import { darknessFactor, moonState, sunAltitudeDeg } from './astro';
 import { haversineKm } from './geo';
 import { gridValueAt, type ValueGrid } from './grid';
-import { computeScore } from './score';
+import { computeScore, WEIGHTS, type Weights } from './score';
 import type { LatLon } from './types';
 
 /** Curated dark-sky spot (config/spots.json). */
@@ -50,6 +50,11 @@ export interface RankContext {
   bz: number | null;
   speed: number | null;
   maxKm: number;
+  weights?: Weights;
+  /** personalisation: skip spots beyond this drive time */
+  maxDriveMin?: number;
+  /** personalisation: small boost for favourite spots */
+  favorites?: string[];
 }
 
 /** Score every spot for time `at` and rank, best first. Spots beyond maxKm are excluded. */
@@ -59,6 +64,7 @@ export function rankSpots(spots: Spot[], ctx: RankContext): RankedSpot[] {
   for (const spot of spots) {
     const distanceKm = haversineKm(ctx.from, spot);
     if (distanceKm > ctx.maxKm) continue;
+    if (ctx.maxDriveMin != null && driveMinutes(distanceKm) > ctx.maxDriveMin) continue;
     const cloud = ctx.clouds ? gridValueAt(ctx.clouds, ctx.timeIdx, spot.lat, spot.lon) : null;
     const sunAlt = sunAltitudeDeg(ctx.at, spot.lat, spot.lon);
     const r = computeScore({
@@ -70,7 +76,7 @@ export function rankSpots(spots: Spot[], ctx: RankContext): RankedSpot[] {
       kp: ctx.kp,
       bz: ctx.bz,
       speed: ctx.speed,
-    });
+    }, ctx.weights ?? WEIGHTS);
     const score = Math.round(r.score * lightPollutionFactor(spot.bortle));
     out.push({
       spot,
@@ -82,7 +88,10 @@ export function rankSpots(spots: Spot[], ctx: RankContext): RankedSpot[] {
     });
   }
   // Prefer score; break ties by distance (closer is better).
-  return out.sort((a, b) => b.score - a.score || a.distanceKm - b.distanceKm);
+  // Favourites win ties and near-ties (≤ 3 points); otherwise score, then distance.
+  const fav = new Set(ctx.favorites ?? []);
+  const eff = (r: RankedSpot) => r.score + (fav.has(r.spot.id) ? 3 : 0);
+  return out.sort((a, b) => eff(b) - eff(a) || a.distanceKm - b.distanceKm);
 }
 
 export function mapsLinks(dest: LatLon, label: string) {

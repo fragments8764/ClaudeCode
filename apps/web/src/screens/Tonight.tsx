@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
-import { ChevronDown, ChevronRight, Clock, Cloud, Gauge, LayoutGrid, MapPin, Moon, SlidersHorizontal, TriangleAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, LayoutGrid, MapPin, MessageCircleQuestion, Moon, SlidersHorizontal, TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { spring, STAGGER } from '../design/tokens';
 import { Freshness } from '../components/Freshness';
@@ -12,6 +12,8 @@ import { useT } from '../lib/i18n';
 import { chime } from '../lib/sound';
 import { useSettings } from '../lib/store';
 import { useSafetySummary } from '../sheets/SafetySheet';
+import { pendingFeedback } from '../sheets/FeedbackSheet';
+import { ageText, staleSources } from '../lib/staleness';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
 import { PullToRefresh } from '../ui/PullToRefresh';
@@ -25,7 +27,7 @@ const item = {
   show: { opacity: 1, y: 0, transition: spring },
 };
 
-export function TonightScreen({ c, open, openTool }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety') => void }) {
+export function TonightScreen({ c, open, openTool, onFeedback, online }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety' | 'health') => void; onFeedback: (night: string) => void; online: boolean }) {
   const t = useT();
   const qc = useQueryClient();
   const location = useSettings((s) => s.location);
@@ -55,6 +57,12 @@ export function TonightScreen({ c, open, openTool }: { c: Conditions; open: (s: 
   let sub = s ? t(s.limitingLabel ? `limit.${s.limitingLabel}` : 'limit.none') : t('reading');
   if (s?.verdict === 'wait-dark') sub = c.plan.noDarkness ? t('dark.none') : c.plan.darkStart ? t('dark.from', { t: hhmm(c.plan.darkStart) }) : sub;
 
+  // Never show stale data as live
+  const metas = [...(c.sw.data?.meta.sources ?? []), ...(c.clouds.data?.meta.sources ?? []), ...(c.aurora.data?.meta.sources ?? [])];
+  const stale = DEMO ? [] : staleSources(metas, c.now);
+  const oldest = metas.map((m) => m.fetchedAt).filter((x): x is string => !!x).sort()[0];
+  const feedback = pendingFeedback(c.now);
+
   const best = c.best;
   const nowMs = c.now.getTime();
   const inBest = best && nowMs >= new Date(best.start).getTime() && nowMs < new Date(best.end).getTime();
@@ -77,10 +85,29 @@ export function TonightScreen({ c, open, openTool }: { c: Conditions; open: (s: 
           </Press>
         </motion.div>
 
+        {/* data freshness: offline badge, or a subtle stale banner — tap for Data health */}
+        {!online && oldest ? (
+          <motion.button variants={item} onClick={() => openTool('health')} className="glass pill mx-auto mt-3 flex min-h-[40px] items-center gap-2 px-4 text-[13px] text-fair">
+            <CloudOff size={14} strokeWidth={1.75} aria-hidden /> {t('offline.badge', { t: hhmm(oldest) })}
+          </motion.button>
+        ) : (
+          stale[0] && (
+            <motion.button variants={item} onClick={() => openTool('health')} className="glass pill mx-auto mt-3 flex min-h-[40px] items-center gap-2 px-4 text-[13px] text-fair">
+              <History size={14} strokeWidth={1.75} aria-hidden /> {t('stale.banner', { label: stale[0].label, age: ageText(stale[0].ageMin) })}
+            </motion.button>
+          )
+        )}
+
         {safety.alert && (
           <motion.button variants={item} onClick={() => openTool('safety')} className="glass pill mx-auto mt-3 flex min-h-[40px] items-center gap-2 px-4 text-[13px] text-fair">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
             {safety.warnings.length ? t('warn.chip', { n: safety.warnings.length }) : safety.gust >= 20 ? `Gusts ${Math.round(safety.gust)} m/s nearby` : 'Road closures nearby'}
+          </motion.button>
+        )}
+
+        {feedback && (
+          <motion.button variants={item} onClick={() => onFeedback(feedback.night)} className="glass pill mx-auto mt-3 flex min-h-[44px] items-center gap-2 px-4 text-[13px]">
+            <MessageCircleQuestion size={15} strokeWidth={1.75} aria-hidden /> {t('feedback.card')} <span className="text-[rgb(var(--aurora-rgb))]">{t('feedback.cta')}</span>
           </motion.button>
         )}
 

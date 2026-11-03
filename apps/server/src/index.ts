@@ -52,7 +52,8 @@ const sendPush: SendPush = async (sub, payload) => {
 };
 
 const fetcher = new Fetcher(SOURCES, { userAgent });
-const app = createApp({ fetcher, corsOrigin: process.env.CORS_ORIGIN ?? '*', configDir: CONFIG_DIR, dataDir: DATA_DIR, vapid, sendPush });
+const app = createApp({ fetcher, corsOrigin: process.env.CORS_ORIGIN ?? '*', configDir: CONFIG_DIR, dataDir: DATA_DIR, vapid, sendPush, adminToken: process.env.ADMIN_TOKEN || null });
+if (!process.env.ADMIN_TOKEN) console.log('[nordurljos] ADMIN_TOKEN not set: /admin validation dashboard disabled.');
 
 // In production, serve the built PWA from the same origin (single deploy).
 const webDist = resolve(process.env.WEB_DIST ?? here('../../web/dist'));

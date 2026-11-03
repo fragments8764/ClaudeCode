@@ -9,6 +9,8 @@ export interface SourceMeta {
   stale: boolean;
   fetchedAt: string | null;
   error?: string;
+  provider?: string;
+  ttlSec?: number;
 }
 
 export interface Envelope<T> {
@@ -44,6 +46,7 @@ export interface Clouds {
   perSource: { source: string; current: CloudLayers | null }[];
   hourly: CloudLayers[];
   weather: { temperature: number | null; feelsLike: number | null; windSpeed: number | null; windGust: number | null } | null;
+  fallback?: string | null;
 }
 
 export interface Health {
@@ -65,6 +68,10 @@ export interface Health {
     lastLatencyMs: number | null;
     requests: number;
     cacheHits: number;
+    provider: string;
+    expectedRefreshSec: number;
+    ageSec: number | null;
+    state: 'ok' | 'stale' | 'down' | 'idle';
   }[];
 }
 

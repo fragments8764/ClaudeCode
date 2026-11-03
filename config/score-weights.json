@@ -1,0 +1,18 @@
+{
+  "$comment": "Aurora Score weights. score = 100 × activity × sky × dark × moon. Edit and the server reloads them (version shows up in score logs so validation can compare versions). See packages/core/src/score.ts for what each weight does.",
+  "version": "2026-11-03.1",
+  "weights": {
+    "OVATION_FULL": 30,
+    "OVATION_SHARE": 0.7,
+    "BZ_SOUTH_PER_NT": 0.0333,
+    "BZ_SOUTH_MAX": 0.25,
+    "BZ_NORTH_PER_NT": 0.0333,
+    "BZ_NORTH_MAX": 0.15,
+    "SPEED_REF": 400,
+    "SPEED_PER_KMS": 0.001,
+    "SPEED_MIN": -0.05,
+    "SPEED_MAX": 0.15,
+    "MOON_MAX_PENALTY": 0.35,
+    "CLOUD_UNKNOWN": 60
+  }
+}

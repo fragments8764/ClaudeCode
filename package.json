@@ -16,7 +16,8 @@
     "build": "npm run build -w @nordurljos/web && npm run build -w @nordurljos/server",
     "start": "npm run start -w @nordurljos/server",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web"
+    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web",
+    "backtest": "npm run backtest -w @nordurljos/server"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

@@ -21,7 +21,7 @@ clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/api\//] }));
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/api\//, /^\/admin/] }));
 
 registerRoute(
   ({ url, request }) => url.origin === self.location.origin && url.pathname.startsWith('/api/') && request.method === 'GET' && !url.pathname.startsWith('/api/health') && !url.pathname.startsWith('/api/push'),

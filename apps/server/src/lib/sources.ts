@@ -14,13 +14,21 @@ export interface SourceDef {
   /** After TTL, keep serving the last good value for this long if upstream fails. */
   staleMs: number;
   timeoutMs: number;
+  /** Provider group for the Data Health screen. */
+  provider?: string;
 }
 
 const MIN = 60_000;
 
+/** Open-Meteo: free API (non-commercial, ~10k calls/day/IP) or the paid customer API when a key is set. */
+const env = (k: string): string | undefined => (typeof process !== 'undefined' ? process.env?.[k] : undefined);
+export const openMeteoHost = () => (env('OPEN_METEO_API_KEY') ? 'https://customer-api.open-meteo.com' : 'https://api.open-meteo.com');
+export const openMeteoKey = () => (env('OPEN_METEO_API_KEY') ? `&apikey=${encodeURIComponent(env('OPEN_METEO_API_KEY')!)}` : '');
+
 export const SOURCES = {
   'noaa-kp': {
     id: 'noaa-kp',
+    provider: 'NOAA SWPC',
     name: 'NOAA SWPC planetary Kp',
     attribution: 'NOAA Space Weather Prediction Center',
     homepage: 'https://www.swpc.noaa.gov/products/planetary-k-index',
@@ -30,6 +38,7 @@ export const SOURCES = {
   },
   'noaa-kp-forecast': {
     id: 'noaa-kp-forecast',
+    provider: 'NOAA SWPC',
     name: 'NOAA SWPC Kp forecast',
     attribution: 'NOAA Space Weather Prediction Center',
     homepage: 'https://www.swpc.noaa.gov/products/3-day-forecast',
@@ -39,6 +48,7 @@ export const SOURCES = {
   },
   'noaa-rtsw-wind': {
     id: 'noaa-rtsw-wind',
+    provider: 'NOAA SWPC',
     name: 'NOAA real-time solar wind (plasma)',
     attribution: 'NOAA SWPC Real-Time Solar Wind',
     homepage: 'https://www.swpc.noaa.gov/products/real-time-solar-wind',
@@ -48,6 +58,7 @@ export const SOURCES = {
   },
   'noaa-rtsw-mag': {
     id: 'noaa-rtsw-mag',
+    provider: 'NOAA SWPC',
     name: 'NOAA real-time solar wind (IMF)',
     attribution: 'NOAA SWPC Real-Time Solar Wind',
     homepage: 'https://www.swpc.noaa.gov/products/real-time-solar-wind',
@@ -57,6 +68,7 @@ export const SOURCES = {
   },
   'noaa-ovation': {
     id: 'noaa-ovation',
+    provider: 'NOAA SWPC',
     name: 'NOAA OVATION aurora forecast',
     attribution: 'NOAA SWPC OVATION Prime model',
     homepage: 'https://www.swpc.noaa.gov/products/aurora-30-minute-forecast',
@@ -66,6 +78,7 @@ export const SOURCES = {
   },
   'open-meteo': {
     id: 'open-meteo',
+    provider: 'Open-Meteo',
     name: 'Open-Meteo forecast',
     attribution: 'Weather data by Open-Meteo.com (CC BY 4.0)',
     homepage: 'https://open-meteo.com/',
@@ -75,6 +88,7 @@ export const SOURCES = {
   },
   'met-norway': {
     id: 'met-norway',
+    provider: 'MET Norway',
     name: 'MET Norway Locationforecast',
     attribution: 'Data from MET Norway (CC BY 4.0)',
     homepage: 'https://api.met.no/',
@@ -84,6 +98,7 @@ export const SOURCES = {
   },
   'open-meteo-grid': {
     id: 'open-meteo-grid',
+    provider: 'Open-Meteo',
     name: 'Open-Meteo cloud grid (Iceland & cameras)',
     attribution: 'Weather data by Open-Meteo.com (CC BY 4.0)',
     homepage: 'https://open-meteo.com/',
@@ -93,6 +108,7 @@ export const SOURCES = {
   },
   'noaa-kp-1m': {
     id: 'noaa-kp-1m',
+    provider: 'NOAA SWPC',
     name: 'NOAA estimated Kp (1-minute)',
     attribution: 'NOAA Space Weather Prediction Center',
     homepage: 'https://www.swpc.noaa.gov/products/planetary-k-index',
@@ -102,6 +118,7 @@ export const SOURCES = {
   },
   'intermagnet': {
     id: 'intermagnet',
+    provider: 'INTERMAGNET',
     name: 'INTERMAGNET ground magnetometer (Narsarsuaq / Abisko)',
     attribution: 'INTERMAGNET; DTU Space (NAQ); Geological Survey of Sweden (ABK)',
     homepage: 'https://intermagnet.org/',
@@ -111,6 +128,7 @@ export const SOURCES = {
   },
   'imo-cap': {
     id: 'imo-cap',
+    provider: 'Icelandic Met Office',
     name: 'Icelandic Met Office warnings (CAP)',
     attribution: 'Veðurstofa Íslands — Icelandic Met Office',
     homepage: 'https://en.vedur.is/',
@@ -120,6 +138,7 @@ export const SOURCES = {
   },
   'imo-obs': {
     id: 'imo-obs',
+    provider: 'Icelandic Met Office',
     name: 'Icelandic Met Office ceilometer observations',
     attribution: 'Veðurstofa Íslands — Icelandic Met Office',
     homepage: 'https://api.vedur.is/',
@@ -129,6 +148,7 @@ export const SOURCES = {
   },
   'imo-stations': {
     id: 'imo-stations',
+    provider: 'Icelandic Met Office',
     name: 'Icelandic Met Office station list',
     attribution: 'Veðurstofa Íslands — Icelandic Met Office',
     homepage: 'https://api.vedur.is/',
@@ -138,6 +158,7 @@ export const SOURCES = {
   },
   'vg-weather': {
     id: 'vg-weather',
+    provider: 'Vegagerðin (road.is)',
     name: 'Vegagerðin road weather stations',
     attribution: 'Vegagerðin — Icelandic Road and Coastal Administration',
     homepage: 'https://umferdin.is/',
@@ -147,6 +168,7 @@ export const SOURCES = {
   },
   'vg-roads': {
     id: 'vg-roads',
+    provider: 'Vegagerðin (road.is)',
     name: 'Vegagerðin road conditions',
     attribution: 'Vegagerðin — Icelandic Road and Coastal Administration',
     homepage: 'https://umferdin.is/',
@@ -156,12 +178,33 @@ export const SOURCES = {
   },
   'camera-image': {
     id: 'camera-image',
+    provider: 'Cameras',
     name: 'All-sky camera images',
     attribution: 'See each camera',
     homepage: 'https://intermagnet.org/',
     ttlMs: 3 * MIN,
     staleMs: 6 * 60 * MIN,
     timeoutMs: 20000,
+  },
+  'noaa-27day': {
+    id: 'noaa-27day',
+    provider: 'NOAA SWPC',
+    name: 'NOAA 27-day outlook',
+    attribution: 'NOAA Space Weather Prediction Center',
+    homepage: 'https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices',
+    ttlMs: 6 * 60 * MIN,
+    staleMs: 48 * 60 * MIN,
+    timeoutMs: 10000,
+  },
+  'open-meteo-5day': {
+    id: 'open-meteo-5day',
+    provider: 'Open-Meteo',
+    name: 'Open-Meteo 6-day cloud forecast',
+    attribution: 'Weather data by Open-Meteo.com (CC BY 4.0)',
+    homepage: 'https://open-meteo.com/',
+    ttlMs: 60 * MIN,
+    staleMs: 12 * 60 * MIN,
+    timeoutMs: 10000,
   },
 } satisfies Record<string, SourceDef>;
 

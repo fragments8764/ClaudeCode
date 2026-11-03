@@ -22,6 +22,8 @@ import {
   substormNowcast,
   sunAltitudeDeg,
   darknessFactor,
+  calibration,
+  eveningOf,
   type AlertPrefsLike,
   type AlertRule,
   type GroundMag,
@@ -30,7 +32,10 @@ import type { CameraDef, ConfigLoader } from '../lib/config';
 import type { Fetcher, FetchResult } from '../lib/fetcher';
 import { FrameStore } from '../lib/frames';
 import { RateLimiter } from '../lib/ratelimit';
-import type { SourceId } from '../lib/sources';
+import { openMeteoHost, openMeteoKey, type SourceId } from '../lib/sources';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { renderAdmin } from './admin';
 import { JsonStore } from '../lib/store';
 
 export const UP2 = {
@@ -39,12 +44,12 @@ export const UP2 = {
     const lo: number[] = [];
     for (const a of lats) for (const b of lons) (la.push(a), lo.push(b));
     return (
-      `https://api.open-meteo.com/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}` +
+      `${openMeteoHost()}/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}${openMeteoKey()}` +
       '&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&forecast_hours=48&past_hours=3&timezone=GMT'
     );
   },
   camClouds: (pts: { lat: number; lon: number }[]) =>
-    `https://api.open-meteo.com/v1/forecast?latitude=${pts.map((p) => p.lat).join(',')}&longitude=${pts.map((p) => p.lon).join(',')}` +
+    `${openMeteoHost()}/v1/forecast?latitude=${pts.map((p) => p.lat).join(',')}&longitude=${pts.map((p) => p.lon).join(',')}${openMeteoKey()}` +
     '&current=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&timezone=GMT',
   kp1m: 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json',
   gin: (station: string, day: string) =>
@@ -68,6 +73,31 @@ export interface PushSub {
   prefs: AlertPrefsLike;
   createdAt: string;
   lastSent: Partial<Record<AlertRule, string>>;
+  /** evening date we last asked "did you see it?" for */
+  lastAsked?: string;
+}
+
+/** Anonymised score log for validation (location rounded to ~10 km, no identifiers). */
+export interface ScoreLogEntry {
+  at: string;
+  lat: number;
+  lon: number;
+  score: number;
+  verdict: string;
+  inputs: Record<string, number | null>;
+  weightsVersion: string;
+}
+
+export interface OutcomeEntry {
+  id: string;
+  night: string;
+  lat: number;
+  lon: number;
+  saw: boolean;
+  brightness: number | null;
+  predicted: number | null;
+  predictedFrom: 'server-log' | 'client' | null;
+  at: string;
 }
 
 export interface Sighting {
@@ -96,6 +126,7 @@ interface Ctx {
   scoreAt: (lat: number, lon: number) => Promise<{ data: any; sources: any[]; raw: any }>;
   parseLatLon: (q: (k: string) => string | undefined) => { lat: number; lon: number } | null;
   meta: (id: SourceId, r: PromiseSettledResult<FetchResult<unknown>>) => any;
+  adminToken?: string | null;
 }
 
 const val = <T>(r: PromiseSettledResult<FetchResult<T>>): T | null => (r.status === 'fulfilled' ? r.value.value : null);
@@ -119,6 +150,32 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   const writeLimit = new RateLimiter(8, 10 * 60_000);
   const subs = new JsonStore<PushSub[]>(ctx.dataDir, 'push-subscriptions', []);
   const sightings = new JsonStore<Sighting[]>(ctx.dataDir, 'sightings', []);
+  const scoreLog = new JsonStore<ScoreLogEntry[]>(ctx.dataDir, 'score-log', []);
+  const outcomes = new JsonStore<OutcomeEntry[]>(ctx.dataDir, 'outcomes', []);
+  const lastLogged = new Map<string, number>();
+
+  /** Log a computed score (deduplicated per ~10 km cell per 15 min). */
+  function logScore(e: Omit<ScoreLogEntry, 'lat' | 'lon'> & { lat: number; lon: number }) {
+    const lat = snapCoord(e.lat, 0.1);
+    const lon = snapCoord(e.lon, 0.1);
+    const key = `${lat},${lon}`;
+    const t = new Date(e.at).getTime();
+    if (t - (lastLogged.get(key) ?? 0) < 15 * 60_000) return;
+    lastLogged.set(key, t);
+    scoreLog.update((all) => [...all, { ...e, lat, lon }].slice(-50_000));
+  }
+
+  /** Peak logged score during darkness on a given evening near a point (±0.35°). */
+  function peakForNight(night: string, lat: number, lon: number): number | null {
+    let peak: number | null = null;
+    for (const e of scoreLog.get()) {
+      if (Math.abs(e.lat - lat) > 0.35 || Math.abs(e.lon - lon) > 0.7) continue;
+      if (eveningOf(e.at) !== night) continue;
+      if ((e.inputs.sunAltDeg ?? 0) > -6) continue;
+      peak = Math.max(peak ?? 0, e.score);
+    }
+    return peak;
+  }
 
   // ───────── Map data ─────────
   const cloudGrid = () =>
@@ -337,9 +394,12 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     if (!isValidLatLon(lat, lon) || !(brightness >= 1 && brightness <= 5)) return c.json({ error: 'lat, lon and brightness (1–5) required' }, 400);
     const colors = Array.isArray(body?.colors) ? body.colors.filter((x: unknown) => typeof x === 'string' && COLORS.has(x)).slice(0, 6) : [];
     const direction = typeof body?.direction === 'string' && /^(N|NE|E|SE|S|SW|W|NW|overhead)$/.test(body.direction) ? body.direction : null;
+    // Reports queued offline carry their original time; accept it if it's within the last 6 h (no backdating beyond that).
+    const claimed = typeof body?.at === 'string' ? Date.parse(body.at) : NaN;
+    const at = Number.isFinite(claimed) && claimed <= now().getTime() + 60_000 && claimed >= now().getTime() - 6 * 3.6e6 ? new Date(claimed) : now();
     const s: Sighting = {
       id: Math.random().toString(36).slice(2, 10),
-      at: now().toISOString(),
+      at: at.toISOString(),
       // ~10 km privacy rounding: nobody's exact position is ever stored or shown
       lat: snapCoord(lat, 0.1),
       lon: snapCoord(lon, 0.1),
@@ -351,6 +411,63 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     sightings.update((all) => [...all, s].slice(-2000));
     return c.json({ data: s }, 201);
   });
+
+  // ───────── Score validation: outcomes ("did you see it?") ─────────
+  app.post('/api/outcomes', async (c) => {
+    if (!writeLimit.allow(`o:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 2048);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const lat = Number(b?.lat);
+    const lon = Number(b?.lon);
+    const night = String(b?.night ?? '');
+    if (!isValidLatLon(lat, lon) || !/^\d{4}-\d{2}-\d{2}$/.test(night) || typeof b?.saw !== 'boolean') return c.json({ error: 'night, lat, lon and saw required' }, 400);
+    const sl = snapCoord(lat, 0.1);
+    const so = snapCoord(lon, 0.1);
+    const fromLog = peakForNight(night, sl, so);
+    const clientPred = Number(b?.predicted);
+    const o: OutcomeEntry = {
+      id: Math.random().toString(36).slice(2, 10),
+      night,
+      lat: sl,
+      lon: so,
+      saw: b.saw,
+      brightness: Number.isInteger(b?.brightness) && b.brightness >= 1 && b.brightness <= 5 ? b.brightness : null,
+      predicted: fromLog ?? (Number.isFinite(clientPred) && clientPred >= 0 && clientPred <= 100 ? Math.round(clientPred) : null),
+      predictedFrom: fromLog != null ? 'server-log' : Number.isFinite(clientPred) ? 'client' : null,
+      at: now().toISOString(),
+    };
+    outcomes.update((all) => [...all, o].slice(-20_000));
+    return c.json({ data: o }, 201);
+  });
+
+  // ───────── Internal validation dashboard (ADMIN_TOKEN) ─────────
+  const authed = (c: { req: { query: (k: string) => string | undefined; header: (k: string) => string | undefined } }) =>
+    !!ctx.adminToken && (c.req.query('token') === ctx.adminToken || c.req.header('authorization') === `Bearer ${ctx.adminToken}`);
+  function validationReport() {
+    const os = outcomes.get().filter((o) => o.predicted != null);
+    let backtest: unknown = null;
+    if (ctx.dataDir) {
+      try {
+        backtest = JSON.parse(readFileSync(join(ctx.dataDir, 'backtest', 'report.json'), 'utf8'));
+      } catch {
+        /* not run yet */
+      }
+    }
+    return {
+      generatedAt: now().toISOString(),
+      weights: config.weights(),
+      scoreLog: { entries: scoreLog.get().length, since: scoreLog.get()[0]?.at ?? null },
+      outcomes: { total: outcomes.get().length, withPrediction: os.length, recent: outcomes.get().slice(-30).reverse() },
+      calibration: calibration(os.map((o) => ({ predicted: o.predicted!, saw: o.saw }))),
+      backtest,
+    };
+  }
+  app.get('/api/admin/validation', (c) => (authed(c) ? c.json({ data: validationReport() }) : c.json({ error: 'not found' }, 404)));
+  app.get('/admin', (c) => (authed(c) ? c.html(renderAdmin(validationReport())) : c.text('Not found', 404)));
 
   // ───────── Web push ─────────
   app.get('/api/push/key', (c) => (ctx.vapid ? c.json({ data: { publicKey: ctx.vapid.publicKey } }) : c.json({ error: 'push not configured' }, 503)));
@@ -454,11 +571,22 @@ export function registerExtras(app: Hono, ctx: Ctx) {
         sub.lastSent,
         t,
       );
+      // "Did you see it?" the next morning (09:00–11:59 local), once per night, if there was a real chance
+      const localHour = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: sub.prefs.tz || 'UTC' }).format(t));
+      const lastNight = eveningOf(new Date(t.getTime() - 14 * 3.6e6).toISOString());
+      if (localHour >= 9 && localHour < 12 && sub.lastAsked !== lastNight) {
+        const peak = peakForNight(lastNight, snapCoord(sub.lat, 0.1), snapCoord(sub.lon, 0.1));
+        if (peak != null && peak >= 10) {
+          msgs.push({ rule: 'score', title: 'Did you see aurora last night?', body: `The score near ${sub.label} reached ${peak}. One tap helps tune the forecast.`, tag: `feedback-${lastNight}` });
+          sub.lastAsked = lastNight;
+        }
+      }
       for (const m of msgs) {
         try {
-          const r = await ctx.sendPush(sub, { title: m.title, body: m.body, url: '/#/tonight', tag: m.tag });
+          const isFeedback = m.tag.startsWith('feedback-');
+          const r = await ctx.sendPush(sub, { title: m.title, body: m.body, url: isFeedback ? `/#/feedback?night=${m.tag.slice(9)}` : '/#/tonight', tag: m.tag });
           if (r.gone) gone.add(sub.endpoint);
-          sub.lastSent[m.rule] = t.toISOString();
+          if (!isFeedback) sub.lastSent[m.rule] = t.toISOString();
           sent++;
         } catch (e) {
           console.warn('[push] send failed', (e as Error).message);
@@ -469,5 +597,12 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     return sent;
   }
 
-  return { captureFrames, runAlerts, flush: () => (subs.flush(), sightings.flush()), stores: { subs, sightings }, frames };
+  return {
+    captureFrames,
+    runAlerts,
+    logScore,
+    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush()),
+    stores: { subs, sightings, scoreLog, outcomes },
+    frames,
+  };
 }

@@ -17,7 +17,7 @@ import {
 import { useMemo } from 'react';
 import { useNow } from '../hooks/useNow';
 import { skyParams, type SkyParams } from '../sky/skyParams';
-import { useAurora, useClouds, useSpaceWeather } from './api';
+import { useAurora, useClouds, useSpaceWeather, useWeights } from './api';
 import { useSettings } from './store';
 
 /**
@@ -62,6 +62,7 @@ export function useConditions(): Conditions {
   const sw = useSpaceWeather();
   const clouds = useClouds(location.lat, location.lon);
   const aurora = useAurora(location.lat, location.lon);
+  const { weights } = useWeights();
 
   const plan = useMemo(() => planNight(now, location.lat, location.lon, 24, 5), [now, location.lat, location.lon]);
   const sun = useMemo(() => sunState(now, location.lat, location.lon), [now, location.lat, location.lon]);
@@ -71,7 +72,7 @@ export function useConditions(): Conditions {
   const ad = aurora.data?.data;
 
   const score = useMemo(() => {
-    if (DEMO) return computeScore({ ...DEMO, sunAltDeg: -25, moonAltDeg: -5, moonIllumination: 0.2 });
+    if (DEMO) return computeScore({ ...DEMO, sunAltDeg: -25, moonAltDeg: -5, moonIllumination: 0.2 }, weights);
     if (!swd && !cd && !ad) return null;
     return computeScore({
       sunAltDeg: sun.altitudeDeg,
@@ -82,8 +83,8 @@ export function useConditions(): Conditions {
       kp: swd?.kp.now?.kp ?? null,
       bz: swd?.solarWind.bzAvg15m ?? null,
       speed: swd?.solarWind.latest?.speed ?? null,
-    });
-  }, [swd, cd, ad, sun.altitudeDeg, plan.moon.altitudeDeg, plan.moon.illumination]);
+    }, weights);
+  }, [swd, cd, ad, sun.altitudeDeg, plan.moon.altitudeDeg, plan.moon.illumination, weights]);
 
   const outlook = useMemo(() => {
     if (!cd) return [] as HourOutlook[];
@@ -94,9 +95,9 @@ export function useConditions(): Conditions {
     const out = hourlyOutlook(hours, (d) => {
       const m = moonState(d, location.lat, location.lon);
       return { sunAlt: sunAltitudeDeg(d, location.lat, location.lon), moonAlt: m.altitudeDeg, moonIllumination: m.illumination };
-    });
+    }, weights);
     return out;
-  }, [cd, swd, now, location.lat, location.lon]);
+  }, [cd, swd, now, location.lat, location.lon, weights]);
   const best = useMemo(() => bestWindow(outlook, 2), [outlook]);
 
   const sky = useMemo(

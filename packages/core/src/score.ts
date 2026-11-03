@@ -18,9 +18,10 @@ import { darknessFactor } from './astro';
  * DARK  = darknessFactor(sunAlt)   (0 above horizon → 1 at −18°; nautical twilight ≈ 0.65)
  * MOON  = 1 − MOON_MAX_PENALTY · illumination · clamp(moonAlt / 30°)
  *
- * Tune by editing WEIGHTS; tests in __tests__/score.test.ts pin the behaviour.
+ * Weights live in config/score-weights.json (loaded by the server, served to the app); WEIGHTS below
+ * are the defaults. Tests in __tests__/ovation-score.test.ts pin the behaviour.
  */
-export const WEIGHTS = {
+export const WEIGHTS: Weights = {
   OVATION_FULL: 30,
   OVATION_SHARE: 0.7,
   BZ_SOUTH_PER_NT: 1 / 30,
@@ -34,7 +35,32 @@ export const WEIGHTS = {
   MOON_MAX_PENALTY: 0.35,
   /** When cloud data is missing, assume this cover (pessimistic-ish). */
   CLOUD_UNKNOWN: 60,
-} as const;
+};
+
+export interface Weights {
+  OVATION_FULL: number;
+  OVATION_SHARE: number;
+  BZ_SOUTH_PER_NT: number;
+  BZ_SOUTH_MAX: number;
+  BZ_NORTH_PER_NT: number;
+  BZ_NORTH_MAX: number;
+  SPEED_REF: number;
+  SPEED_PER_KMS: number;
+  SPEED_MIN: number;
+  SPEED_MAX: number;
+  MOON_MAX_PENALTY: number;
+  CLOUD_UNKNOWN: number;
+}
+
+/** Merge a (possibly partial / untrusted) weights object over the defaults, ignoring non-numbers. */
+export function resolveWeights(w?: Partial<Record<keyof Weights, unknown>> | null): Weights {
+  const out = { ...WEIGHTS };
+  if (w) for (const k of Object.keys(WEIGHTS) as (keyof Weights)[]) {
+    const v = w[k];
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
 
 export const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
@@ -76,8 +102,7 @@ export const FACTOR_LABEL: Record<FactorKey, string> = {
   moon: 'Moonlight',
 };
 
-export function activityFactor(i: Pick<ScoreInputs, 'ovation' | 'kp' | 'bz' | 'speed'>): number {
-  const W = WEIGHTS;
+export function activityFactor(i: Pick<ScoreInputs, 'ovation' | 'kp' | 'bz' | 'speed'>, W: Weights = WEIGHTS): number {
   const kpN = i.kp === null ? null : clamp01((i.kp - 0.5) / 5);
   const ovN = i.ovation === null ? null : clamp01(i.ovation / W.OVATION_FULL);
   let base: number;
@@ -94,17 +119,17 @@ export function activityFactor(i: Pick<ScoreInputs, 'ovation' | 'kp' | 'bz' | 's
   return clamp01(base + boost * Math.max(0.4, base));
 }
 
-export function moonFactor(illumination: number, altDeg: number): number {
-  return 1 - WEIGHTS.MOON_MAX_PENALTY * clamp01(illumination) * clamp01(altDeg / 30);
+export function moonFactor(illumination: number, altDeg: number, W: Weights = WEIGHTS): number {
+  return 1 - W.MOON_MAX_PENALTY * clamp01(illumination) * clamp01(altDeg / 30);
 }
 
-export function computeScore(i: ScoreInputs): ScoreResult {
+export function computeScore(i: ScoreInputs, W: Weights = WEIGHTS): ScoreResult {
   const missing = (Object.keys(i) as (keyof ScoreInputs)[]).filter((k) => i[k] === null);
   const factors: Record<FactorKey, number> = {
     dark: darknessFactor(i.sunAltDeg),
-    sky: 1 - (i.cloud ?? WEIGHTS.CLOUD_UNKNOWN) / 100,
-    activity: activityFactor(i),
-    moon: moonFactor(i.moonIllumination, i.moonAltDeg),
+    sky: 1 - (i.cloud ?? W.CLOUD_UNKNOWN) / 100,
+    activity: activityFactor(i, W),
+    moon: moonFactor(i.moonIllumination, i.moonAltDeg, W),
   };
   const raw = factors.dark * factors.sky * factors.activity * factors.moon;
   const score = Math.round(100 * clamp01(raw));
@@ -158,6 +183,7 @@ export interface BestWindow {
 export function hourlyOutlook(
   hours: { time: string; cloud: number | null; kp: number | null }[],
   sky: (t: Date) => { sunAlt: number; moonAlt: number; moonIllumination: number },
+  W: Weights = WEIGHTS,
 ): HourOutlook[] {
   return hours.map((h) => {
     const s = sky(new Date(h.time));
@@ -170,7 +196,7 @@ export function hourlyOutlook(
       kp: h.kp,
       bz: null,
       speed: null,
-    });
+    }, W);
     return { time: h.time, score: r.score, cloud: h.cloud, kp: h.kp, dark: r.factors.dark };
   });
 }

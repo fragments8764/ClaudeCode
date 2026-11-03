@@ -9,6 +9,14 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'tool.health': 'Data health',
+  'tool.health.sub': 'Every source, live status',
+  'tool.prepare': 'Prepare for tonight',
+  'tool.prepare.sub': 'Save everything for offline',
+  'stale.banner': '{label} data is {age} old',
+  'offline.badge': 'Offline · data from {t}',
+  'feedback.card': 'Did you see aurora last night?',
+  'feedback.cta': 'Tell us',
   updated: 'updated',
   'tab.tonight': 'Tonight',
   'tab.map': 'Map',
@@ -79,6 +87,14 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'tool.health': 'Gagnastaða',
+  'tool.health.sub': 'Allar uppsprettur, staða í beinni',
+  'tool.prepare': 'Undirbúa kvöldið',
+  'tool.prepare.sub': 'Vista allt án nettengingar',
+  'stale.banner': '{label}gögn eru {age} gömul',
+  'offline.badge': 'Ótengt · gögn frá {t}',
+  'feedback.card': 'Sástu norðurljós í gærkvöldi?',
+  'feedback.cta': 'Segðu okkur',
   updated: 'uppfært',
   'tab.tonight': 'Í kvöld',
   'tab.map': 'Kort',
@@ -148,6 +164,14 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'tool.health': 'Datenstatus',
+  'tool.health.sub': 'Alle Quellen, Live-Status',
+  'tool.prepare': 'Für heute Nacht vorbereiten',
+  'tool.prepare.sub': 'Alles offline speichern',
+  'stale.banner': '{label}-Daten sind {age} alt',
+  'offline.badge': 'Offline · Daten von {t}',
+  'feedback.card': 'Hast du gestern Polarlichter gesehen?',
+  'feedback.cta': 'Antworten',
   updated: 'aktualisiert',
   'tab.tonight': 'Heute Nacht',
   'tab.map': 'Karte',
@@ -217,6 +241,14 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'tool.health': 'État des données',
+  'tool.health.sub': 'Toutes les sources, en direct',
+  'tool.prepare': 'Préparer la soirée',
+  'tool.prepare.sub': 'Tout enregistrer hors ligne',
+  'stale.banner': 'Données {label} datant de {age}',
+  'offline.badge': 'Hors ligne · données de {t}',
+  'feedback.card': 'Avez-vous vu l’aurore hier soir ?',
+  'feedback.cta': 'Répondre',
   updated: 'mis à jour',
   'tab.tonight': 'Ce soir',
   'tab.map': 'Carte',
@@ -286,6 +318,14 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'tool.health': '数据状态',
+  'tool.health.sub': '所有数据源的实时状态',
+  'tool.prepare': '为今晚做准备',
+  'tool.prepare.sub': '离线保存全部数据',
+  'stale.banner': '{label}数据已过去 {age}',
+  'offline.badge': '离线 · 数据来自 {t}',
+  'feedback.card': '昨晚看到极光了吗？',
+  'feedback.cta': '告诉我们',
   updated: '更新于',
   'tab.tonight': '今晚',
   'tab.map': '地图',
@@ -355,6 +395,14 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'tool.health': 'データ状況',
+  'tool.health.sub': '全データソースの状態',
+  'tool.prepare': '今夜の準備',
+  'tool.prepare.sub': 'オフライン用に保存',
+  'stale.banner': '{label}データは {age} 前のものです',
+  'offline.badge': 'オフライン · {t} 時点のデータ',
+  'feedback.card': '昨夜オーロラは見えましたか？',
+  'feedback.cta': '回答する',
   updated: '更新',
   'tab.tonight': '今夜',
   'tab.map': '地図',

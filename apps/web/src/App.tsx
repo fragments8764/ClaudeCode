@@ -6,6 +6,10 @@ import { useTilt } from './hooks/useTilt';
 import { useConditions } from './lib/conditions';
 import { haptic } from './lib/haptics';
 import { useT } from './lib/i18n';
+import { startOutbox } from './lib/outbox';
+import { FeedbackSheet, recordNight } from './sheets/FeedbackSheet';
+import { HealthSheet } from './sheets/HealthSheet';
+import { PrepareSheet } from './sheets/PrepareSheet';
 import { stats, useJournal } from './lib/journal';
 import { shareFile } from './lib/share';
 import { setPadIntensity, startPad, stopPad } from './lib/sound';
@@ -90,6 +94,24 @@ export default function App() {
   const [mapIntent, setMapIntent] = useState<'best' | null>(null);
   const [onbStep, setOnbStep] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
+
+  // offline outbox (queued sightings / feedback) replays when signal returns
+  useEffect(() => startOutbox(), []);
+
+  // "Did you see it?" — deep link from the morning push: #/feedback?night=YYYY-MM-DD
+  useEffect(() => {
+    const m = route.match(/^feedback\?night=(\d{4}-\d{2}-\d{2})/);
+    if (m) {
+      setFeedbackNight(m[1]!);
+      history.replaceState(null, '', '#/tonight');
+    }
+  }, [route]);
+
+  // remember tonight's peak score locally (for the morning question)
+  useEffect(() => {
+    if (c.score && c.sun.darknessFactor >= 0.6) recordNight(c.score.score, loc);
+  }, [c.score, c.sun.darknessFactor, loc]);
 
   // Lazy sheets mount on first open and stay mounted so their exit animations still play.
   const [mounted, setMounted] = useState<Set<string>>(() => new Set());
@@ -193,7 +215,7 @@ export default function App() {
   const screen = (() => {
     switch (tab) {
       case 'tonight':
-        return <TonightScreen c={c} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} />;
+        return <TonightScreen c={c} online={online} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} onFeedback={setFeedbackNight} />;
       case 'space':
         return <SpaceScreen c={c} />;
       case 'map':
@@ -221,11 +243,11 @@ export default function App() {
       <AuroraSky params={sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
 
       <AnimatePresence>
-        {(!online || toast) && (
+        {((!online && tab !== 'tonight') || toast) && (
           <motion.div className="pointer-events-none fixed inset-x-0 top-0 flex justify-center px-4 pt-[max(10px,env(safe-area-inset-top))]" style={{ zIndex: 'var(--z-toast)' }} initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}>
             <Glass radius="pill" role="status" className="flex items-center gap-2 px-4 py-2 text-[13px]">
-              {!online ? <CloudOff size={15} strokeWidth={1.5} aria-hidden /> : <Sparkles size={15} strokeWidth={1.5} aria-hidden />}
-              {!online ? t('offline.banner') : toast}
+              {!online && !toast ? <CloudOff size={15} strokeWidth={1.5} aria-hidden /> : <Sparkles size={15} strokeWidth={1.5} aria-hidden />}
+              {!online && !toast ? t('offline.banner') : toast}
             </Glass>
           </motion.div>
         )}
@@ -281,6 +303,9 @@ export default function App() {
         }}
       />
       <SafetySheet c={c} open={tool === 'safety'} onClose={closeTool} />
+      <HealthSheet c={c} open={tool === 'health'} onClose={closeTool} />
+      <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />
+      <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />
       <Suspense fallback={null}>
         {has('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}
         {has('planner') && (

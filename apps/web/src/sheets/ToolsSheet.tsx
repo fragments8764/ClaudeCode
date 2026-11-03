@@ -1,10 +1,10 @@
 import { motion } from 'motion/react';
-import { Aperture, BookOpen, CalendarClock, Compass, GraduationCap, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
+import { Activity, Aperture, BookOpen, CalendarClock, CloudDownload, Compass, GraduationCap, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
 import { spring, STAGGER } from '../design/tokens';
 import { useT } from '../lib/i18n';
 import { Sheet } from '../ui/Sheet';
 
-export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn';
+export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn' | 'health' | 'prepare';
 
 const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?: boolean }[] = [
   { id: 'sighting', icon: Sparkles, title: 'tool.sighting', sub: 'tool.sighting.sub', accent: true },
@@ -15,7 +15,9 @@ const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?
   { id: 'journal', icon: BookOpen, title: 'tool.journal', sub: 'tool.journal.sub' },
   { id: 'share', icon: Share2, title: 'tool.share', sub: 'tool.share.sub' },
   { id: 'ambient', icon: Monitor, title: 'tool.ambient', sub: 'tool.ambient.sub' },
+  { id: 'prepare', icon: CloudDownload, title: 'tool.prepare', sub: 'tool.prepare.sub' },
   { id: 'learn', icon: GraduationCap, title: 'tool.learn', sub: 'tool.learn.sub' },
+  { id: 'health', icon: Activity, title: 'tool.health', sub: 'tool.health.sub' },
 ];
 
 export function ToolsSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (t: ToolId) => void }) {

@@ -87,6 +87,7 @@ export function CloudSheet({ c, open, onClose }: { c: Conditions; open: boolean;
           ))}
         </div>
       </div>
+      {d?.fallback && <p className="mt-4 rounded-[var(--r-md)] bg-[rgb(250_204_21/0.1)] p-3 text-[13px] text-fair">{d.fallback}.</p>}
       <p className="mt-5 text-[15px] leading-relaxed text-ink-2">{f.sentence}</p>
       {nextClear && (d?.effective ?? 0) > 30 && (
         <p className="mt-2 text-[15px] text-good">Clear spell after dark around {whenDay(nextClear.time, c.now)}.</p>

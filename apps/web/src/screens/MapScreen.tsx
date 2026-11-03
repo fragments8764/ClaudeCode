@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera as CamIcon, Layers, LocateFixed, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { spring } from '../design/tokens';
-import { useCameras, useCloudGrid, useOvationGrid, useSightings, useSpots } from '../lib/api';
+import { useCameras, useCloudGrid, useOvationGrid, useSightings, useSpots, useWeights } from '../lib/api';
 import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { useReducedMotionPref, useSettings, type MapLayers } from '../lib/store';
@@ -59,6 +59,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
   const spots = useSpots();
   const cams = useCameras();
   const sightings = useSightings();
+  const { weights } = useWeights();
 
   const g = grid.data?.data ?? null;
   const at = useMemo(() => new Date(hourFloor(c.now) + offset * 3.6e6), [c.now, offset]);
@@ -86,8 +87,9 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
       bz: offset === 0 ? (sw?.solarWind.bzAvg15m ?? null) : null,
       speed: offset === 0 ? (sw?.solarWind.latest?.speed ?? null) : null,
       maxKm: radiusKm,
+      weights,
     });
-  }, [spots.data, c.sw.data, location, at, g, ti, offset, ovVisible, radiusKm]);
+  }, [spots.data, c.sw.data, location, at, g, ti, offset, ovVisible, radiusKm, weights]);
 
   // Marker listeners are created once; route clicks through a ref to the latest ranking.
   const pickRef = useRef<(id: string) => void>(() => {});

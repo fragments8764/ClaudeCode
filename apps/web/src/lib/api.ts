@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
-import type { ValueGrid, Spot } from '@nordurljos/core';
+import { resolveWeights, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
@@ -101,3 +101,10 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 export const apiUrl = (p: string) => `${API_BASE}${p}`;
+
+/** Score weights from config/score-weights.json (server); defaults until loaded / offline. */
+export function useWeights(): { weights: Weights; version: string } {
+  const q = usePersistedQuery<{ data: { version: string; weights: Weights } }>('score-weights', '/api/score-weights', 30 * 60_000);
+  const raw = q.data?.data;
+  return useMemo(() => ({ weights: resolveWeights(raw?.weights ?? null), version: raw?.version ?? 'default' }), [raw]);
+}

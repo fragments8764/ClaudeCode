@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --external:hono --external:@hono/node-server --external:web-push --outfile=dist/index.js",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "backtest": "tsx scripts/backtest.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",

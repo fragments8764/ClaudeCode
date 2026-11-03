@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Check, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { spring } from '../design/tokens';
-import { postJson } from '../lib/api';
+import { postOrQueue } from '../lib/outbox';
 import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { badges, useJournal } from '../lib/journal';
@@ -47,7 +47,7 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
   const [colors, setColors] = useState<string[]>(['green']);
   const [dir, setDir] = useState('N');
   const [share, setShare] = useState(true);
-  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error' | 'queued'>('idle');
   const [newBadges, setNewBadges] = useState<string[]>([]);
 
   const submit = async () => {
@@ -68,9 +68,9 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
     const after = badges(useJournal.getState().entries).filter((b) => b.earned && !before.has(b.id));
     setNewBadges(after.map((b) => b.name));
     try {
-      if (share) await postJson('/api/sightings', { lat: location.lat, lon: location.lon, brightness, colors, direction: dir });
+      const r = share ? await postOrQueue('/api/sightings', { lat: location.lat, lon: location.lon, brightness, colors, direction: dir, at: new Date().toISOString() }) : 'sent';
       haptic('success');
-      setState('done');
+      setState(r === 'queued' ? 'queued' : 'done');
     } catch {
       setState('error');
     }
@@ -89,14 +89,20 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
       detents={['half', 'full']}
       header={<StatHeader id="sighting" icon={Sparkles} label="Log a sighting" value="I see aurora!" />}
     >
-      {state === 'done' || state === 'error' ? (
+      {state === 'done' || state === 'error' || state === 'queued' ? (
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={spring} className="py-6 text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[rgb(var(--aurora-rgb)/0.25)] shadow-[var(--glow)]">
             <Check size={28} strokeWidth={1.75} aria-hidden />
           </div>
           <h3 className="mt-4 font-display text-2xl font-light">Logged in your journal</h3>
           <p className="mt-1 text-[15px] text-ink-2">
-            {state === 'error' ? 'Saved on your phone; the community report will need signal.' : share ? 'Thanks! Your report helps others nearby.' : 'Kept private on this device.'}
+            {state === 'queued'
+              ? 'No signal: saved on your phone, and the community report will send automatically when you’re back in range.'
+              : state === 'error'
+                ? 'Saved on your phone; the community report could not be sent.'
+                : share
+                  ? 'Thanks! Your report helps others nearby.'
+                  : 'Kept private on this device.'}
           </p>
           {newBadges.map((b) => (
             <p key={b} className="mt-3 text-[15px] text-good">

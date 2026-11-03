@@ -11,14 +11,40 @@ const lat2y = (lat: number, z: number) => {
   return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z);
 };
 
-export function tileList(template: string, zMin = 3, zMax = 9): string[] {
+export function tileList(template: string, zMin = 3, zMax = 9, box: { w: number; e: number; s: number; n: number } = BBOX): string[] {
   const urls: string[] = [];
   for (let z = zMin; z <= zMax; z++) {
-    for (let x = lon2x(BBOX.w, z); x <= lon2x(BBOX.e, z); x++) {
-      for (let y = lat2y(BBOX.n, z); y <= lat2y(BBOX.s, z); y++) urls.push(template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)));
+    for (let x = lon2x(box.w, z); x <= lon2x(box.e, z); x++) {
+      for (let y = lat2y(box.n, z); y <= lat2y(box.s, z); y++) urls.push(template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)));
     }
   }
   return urls;
+}
+
+/** Bounding box of a circle (km) around a point. */
+export function bboxAround(c: { lat: number; lon: number }, km: number) {
+  const dLat = km / 111;
+  const dLon = km / (111 * Math.cos((c.lat * Math.PI) / 180));
+  return { w: c.lon - dLon, e: c.lon + dLon, s: c.lat - dLat, n: c.lat + dLat };
+}
+
+/** Style + vector tiles (z4–10) + glyphs/sprites for a pinned region. */
+export async function tilesAround(c: { lat: number; lon: number }, km: number, signal?: AbortSignal): Promise<string[]> {
+  try {
+    const style = await (await fetch(STYLE, { signal })).json();
+    const urls: string[] = [STYLE];
+    for (const src of Object.values(style.sources ?? {}) as { url?: string; tiles?: string[] }[]) {
+      let tiles = src.tiles;
+      if (!tiles && src.url) {
+        urls.push(src.url);
+        tiles = (await (await fetch(src.url, { signal })).json()).tiles;
+      }
+      if (tiles?.[0]) urls.push(...tileList(tiles[0], 4, 10, bboxAround(c, km)));
+    }
+    return urls;
+  } catch {
+    return [];
+  }
 }
 
 export async function saveIcelandOffline(onProgress: (done: number, total: number) => void, signal?: AbortSignal): Promise<number> {
