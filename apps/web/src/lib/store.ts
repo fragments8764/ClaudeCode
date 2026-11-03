@@ -63,6 +63,12 @@ export interface Prefs {
   radiusKm: number;
   favorites: string[];
   onboarded: boolean;
+  /** one-tap battery saver: red-only, dimmed, static sky, slower refresh, paused camera feeds */
+  batterySaver: boolean;
+  /** spoken alerts while the app is open */
+  spokenAlerts: boolean;
+  /** switch to driving mode automatically when GPS says you're moving */
+  autoDriving: boolean;
   /** personalisation (stays on this device) */
   maxDriveMin: number;
   minDarkness: 'nautical' | 'astronomical';
@@ -98,6 +104,9 @@ export const DEFAULT_PREFS: Prefs = {
   radiusKm: 120,
   favorites: [],
   onboarded: false,
+  batterySaver: false,
+  spokenAlerts: false,
+  autoDriving: true,
   maxDriveMin: 120,
   minDarkness: 'nautical',
   hasCamera: true,

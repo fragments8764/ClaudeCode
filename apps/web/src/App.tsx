@@ -14,6 +14,10 @@ import { PlanSheet } from './sheets/PlanSheet';
 import { GapSheet } from './sheets/GapSheet';
 import { OutlookSheet } from './sheets/OutlookSheet';
 import { useCloudGaps } from './lib/gaps';
+import { ChecklistSheet } from './sheets/ChecklistSheet';
+import { DrivingMode } from './screens/Driving';
+import { speak } from './lib/voice';
+import { useNowcast } from './lib/api';
 import { PlanViewer } from './screens/PlanViewer';
 import { startLiveLocation } from './lib/plan';
 import type { RankedSpot } from '@nordurljos/core';
@@ -85,7 +89,10 @@ function useHashRoute() {
 }
 
 export default function App() {
-  const { nightVision, reduceTransparency, lowPower, tab, setTab, reduceMotion, onboarded, sound, location: loc } = useSettings();
+  const { nightVision: nvPref, reduceTransparency, lowPower: lpPref, tab, setTab, reduceMotion, onboarded, sound, location: loc, batterySaver, autoDriving, set: setPref } = useSettings();
+  // Battery saver implies red-only + low power + a still sky
+  const nightVision = nvPref || batterySaver;
+  const lowPower = lpPref || batterySaver;
   const reduced = useReducedMotionPref();
   const online = useOnline();
   const t = useT();
@@ -108,6 +115,58 @@ export default function App() {
   // opt-in live location for an active shared plan
   useEffect(() => startLiveLocation(), []);
   const { gaps } = useCloudGaps(c.now);
+
+  // ── Driving mode: manual, or automatic from GPS speed (only if location permission is already granted) ──
+  const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
+  useEffect(() => {
+    if (!autoDriving || !('geolocation' in navigator)) return;
+    let watch: number | null = null;
+    let fast = 0;
+    let stillSince: number | null = null;
+    let cancelled = false;
+    navigator.permissions
+      ?.query({ name: 'geolocation' as PermissionName })
+      .then((p) => {
+        if (cancelled || p.state !== 'granted') return;
+        watch = navigator.geolocation.watchPosition(
+          (pos) => {
+            const v = pos.coords.speed ?? 0;
+            if (v >= 7) {
+              fast++;
+              stillSince = null;
+              if (fast >= 2) setDriving((d) => d ?? 'auto');
+            } else {
+              fast = 0;
+              if (v < 1) {
+                stillSince ??= Date.now();
+                if (Date.now() - stillSince > 3 * 60_000) setDriving((d) => (d === 'auto' ? null : d));
+              }
+            }
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 10_000 },
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (watch != null) navigator.geolocation.clearWatch(watch);
+    };
+  }, [autoDriving]);
+
+  // ── Spoken alerts: big changes only, while the app is open ──
+  const nowcast = useNowcast();
+  const spokenPrev = useRef<{ verdict?: string; level?: string; score?: number }>({});
+  useEffect(() => {
+    const s = c.score;
+    const lvl = nowcast.data?.data.level;
+    const kp = c.sw.data?.data.kp.now?.kp;
+    const p = spokenPrev.current;
+    if (lvl === 'onset' && p.level !== 'onset') speak(`Aurora burst starting now${kp != null ? `, Kp ${Math.round(kp)}` : ''}. Look up.`);
+    else if (s?.verdict === 'go' && p.verdict && p.verdict !== 'go') speak(`Go outside now. Aurora score ${s.score}.`);
+    else if (s && p.score != null && s.score - p.score >= 15) speak(`Aurora chances jumped to ${s.score}.`);
+    spokenPrev.current = { verdict: s?.verdict, level: lvl, score: s?.score };
+  }, [c.score, nowcast.data, c.sw.data]);
   const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
   const openPlan = (r?: RankedSpot | null) => {
     const end = c.best?.end ?? c.plan.darkEnd;
@@ -205,6 +264,18 @@ export default function App() {
 
   const pickTool = (id: ToolId) => {
     haptic('tap');
+    if (id === 'saver') {
+      setTool(null);
+      setPref('batterySaver', !batterySaver);
+      setToast(batterySaver ? 'Battery saver off' : t('saver.on'));
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    if (id === 'driving') {
+      setTool(null);
+      setDriving('manual');
+      return;
+    }
     if (id === 'share') {
       setTool(null);
       shareTonight().catch(() => {});
@@ -270,7 +341,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduceMotion === 'on' ? 'always' : reduceMotion === 'off' ? 'never' : 'user'} transition={reduced ? calm : spring}>
       <RefractionDefs />
-      <AuroraSky params={sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
+      <AuroraSky params={sky} night={nightVision} reducedMotion={reduced || batterySaver} lowPower={lowPower} />
+      {batterySaver && <div aria-hidden className="pointer-events-none fixed inset-0 bg-black/35" style={{ zIndex: 'var(--z-toast)' }} />}
 
       <AnimatePresence>
         {((!online && tab !== 'tonight') || toast) && (
@@ -338,6 +410,8 @@ export default function App() {
       <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />
       <GapSheet gaps={gaps} open={tool === 'gaps'} onClose={closeTool} darkFrom={c.plan.darkStart} darkUntil={c.plan.darkEnd} />
       <OutlookSheet open={tool === 'outlook'} onClose={closeTool} />
+      <ChecklistSheet c={c} open={tool === 'checklist'} onClose={closeTool} />
+      <DrivingMode c={c} open={!!driving} auto={driving === 'auto'} gap={gaps[0]} onClose={() => setDriving(null)} />
       <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />
       <Suspense fallback={null}>
         {has('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}

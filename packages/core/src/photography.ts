@@ -73,3 +73,46 @@ export function expectation(b: Brightness): { eye: string; camera: string } {
     { eye: 'Fast, dancing curtains across much of the sky, with green, pink and maybe red overhead.', camera: 'Full-sky colour. Use short exposures to keep the detail.' },
   ][b]!;
 }
+
+/** A logged shot (Photographer mode → Shot log). */
+export interface ShotEntry {
+  id: string;
+  at: string;
+  iso: number;
+  shutter: number;
+  aperture: number;
+  focalMm: number;
+  brightness: Brightness;
+  rating: 'good' | 'ok' | 'bad';
+  score: number | null;
+  kp: number | null;
+  cloud: number | null;
+  moonIllumination: number | null;
+  note: string;
+  photoKey: string | null;
+}
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 ? s[(s.length - 1) / 2]! : (s[s.length / 2 - 1]! + s[s.length / 2]!) / 2;
+};
+
+/**
+ * Suggest settings from your own past good shots at the same aurora brightness
+ * (falls back to adjacent brightness levels). Null if you have fewer than 2 good shots.
+ */
+export function suggestFromShots(shots: ShotEntry[], b: Brightness): (Omit<ExposureSuggestion, 'note'> & { basedOn: number; note: string }) | null {
+  for (const spread of [0, 1]) {
+    const good = shots.filter((s) => s.rating === 'good' && Math.abs(s.brightness - b) <= spread);
+    if (good.length >= 2) {
+      return {
+        iso: roundIso(median(good.map((s) => s.iso))),
+        shutter: Math.round(median(good.map((s) => s.shutter)) * 10) / 10,
+        aperture: median(good.map((s) => s.aperture)),
+        basedOn: good.length,
+        note: `Median of your ${good.length} best shots${spread ? ' at similar brightness' : ''}.`,
+      };
+    }
+  }
+  return null;
+}

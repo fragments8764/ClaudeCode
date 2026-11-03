@@ -39,10 +39,12 @@ function cloudTag(v: number | null) {
 function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; frameSrc?: string | null }) {
   const [tick, setTick] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const saver = useSettings((s) => s.batterySaver);
   useEffect(() => {
+    if (saver) return; // battery saver pauses camera feeds
     const id = setInterval(() => setTick((t) => t + 1), 120_000);
     return () => clearInterval(id);
-  }, []);
+  }, [saver]);
   const Icon = KIND_ICON[cam.kind] ?? CamIcon;
   if (!cam.image) {
     return (

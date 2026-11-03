@@ -1,10 +1,10 @@
 import { motion } from 'motion/react';
-import { Activity, Aperture, BookOpen, CalendarClock, CalendarDays, CloudDownload, CloudSun, Compass, GraduationCap, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
+import { Activity, Aperture, BookOpen, CalendarClock, BatteryLow, CalendarDays, Car, CloudDownload, CloudSun, Compass, GraduationCap, ListChecks, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
 import { spring, STAGGER } from '../design/tokens';
 import { useT } from '../lib/i18n';
 import { Sheet } from '../ui/Sheet';
 
-export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn' | 'health' | 'prepare' | 'outlook' | 'gaps';
+export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn' | 'health' | 'prepare' | 'outlook' | 'gaps' | 'checklist' | 'driving' | 'saver';
 
 const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?: boolean }[] = [
   { id: 'sighting', icon: Sparkles, title: 'tool.sighting', sub: 'tool.sighting.sub', accent: true },
@@ -12,6 +12,8 @@ const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?
   { id: 'gaps', icon: CloudSun, title: 'tool.gaps', sub: 'tool.gaps.sub' },
   { id: 'outlook', icon: CalendarDays, title: 'tool.outlook', sub: 'tool.outlook.sub' },
   { id: 'safety', icon: ShieldAlert, title: 'tool.safety', sub: 'tool.safety.sub' },
+  { id: 'checklist', icon: ListChecks, title: 'tool.checklist', sub: 'tool.checklist.sub' },
+  { id: 'driving', icon: Car, title: 'tool.driving', sub: 'tool.driving.sub' },
   { id: 'photo', icon: Aperture, title: 'tool.photo', sub: 'tool.photo.sub' },
   { id: 'ar', icon: Compass, title: 'tool.ar', sub: 'tool.ar.sub' },
   { id: 'journal', icon: BookOpen, title: 'tool.journal', sub: 'tool.journal.sub' },
@@ -19,6 +21,7 @@ const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?
   { id: 'ambient', icon: Monitor, title: 'tool.ambient', sub: 'tool.ambient.sub' },
   { id: 'prepare', icon: CloudDownload, title: 'tool.prepare', sub: 'tool.prepare.sub' },
   { id: 'learn', icon: GraduationCap, title: 'tool.learn', sub: 'tool.learn.sub' },
+  { id: 'saver', icon: BatteryLow, title: 'tool.saver', sub: 'tool.saver.sub' },
   { id: 'health', icon: Activity, title: 'tool.health', sub: 'tool.health.sub' },
 ];
 

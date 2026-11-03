@@ -9,6 +9,13 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'tool.checklist': "Tonight's checklist",
+  'tool.checklist.sub': 'Weather-aware packing',
+  'tool.driving': 'Driving mode',
+  'tool.driving.sub': 'Big, glanceable, spoken',
+  'tool.saver': 'Battery saver',
+  'tool.saver.sub': 'Red, dim, fewer updates',
+  'saver.on': 'Battery saver on',
   'tool.outlook': '5-night outlook',
   'tool.outlook.sub': 'Pick the best night',
   'tool.gaps': 'Cloud-gap hunter',
@@ -94,6 +101,13 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'tool.checklist': 'Gátlisti kvöldsins',
+  'tool.checklist.sub': 'Pakkað eftir veðri',
+  'tool.driving': 'Akstursstilling',
+  'tool.driving.sub': 'Stórt, skýrt, upplesið',
+  'tool.saver': 'Rafhlöðusparnaður',
+  'tool.saver.sub': 'Rautt, dauft, færri uppfærslur',
+  'saver.on': 'Rafhlöðusparnaður á',
   'tool.outlook': 'Horfur 5 nætur',
   'tool.outlook.sub': 'Veldu bestu nóttina',
   'tool.gaps': 'Rofaleit',
@@ -178,6 +192,13 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'tool.checklist': 'Checkliste für heute',
+  'tool.checklist.sub': 'Packliste nach Wetter',
+  'tool.driving': 'Fahrmodus',
+  'tool.driving.sub': 'Groß, auf einen Blick, gesprochen',
+  'tool.saver': 'Akkusparmodus',
+  'tool.saver.sub': 'Rot, gedimmt, weniger Updates',
+  'saver.on': 'Akkusparmodus an',
   'tool.outlook': '5-Nächte-Ausblick',
   'tool.outlook.sub': 'Die beste Nacht wählen',
   'tool.gaps': 'Wolkenlücken-Jäger',
@@ -262,6 +283,13 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'tool.checklist': 'Check-list du soir',
+  'tool.checklist.sub': 'Selon la météo',
+  'tool.driving': 'Mode conduite',
+  'tool.driving.sub': 'Grand, lisible, vocal',
+  'tool.saver': 'Économie de batterie',
+  'tool.saver.sub': 'Rouge, atténué, moins de mises à jour',
+  'saver.on': 'Économie de batterie activée',
   'tool.outlook': 'Prévisions 5 nuits',
   'tool.outlook.sub': 'Choisir la meilleure nuit',
   'tool.gaps': 'Chasseur d’éclaircies',
@@ -346,6 +374,13 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'tool.checklist': '今晚清单',
+  'tool.checklist.sub': '按天气准备装备',
+  'tool.driving': '驾驶模式',
+  'tool.driving.sub': '大字一目了然，语音播报',
+  'tool.saver': '省电模式',
+  'tool.saver.sub': '红光、调暗、减少刷新',
+  'saver.on': '省电模式已开启',
   'tool.outlook': '5 晚展望',
   'tool.outlook.sub': '挑选最佳夜晚',
   'tool.gaps': '云隙猎手',
@@ -430,6 +465,13 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'tool.checklist': '今夜のチェックリスト',
+  'tool.checklist.sub': '天気に合わせた持ち物',
+  'tool.driving': '運転モード',
+  'tool.driving.sub': '大きく見やすく、音声で',
+  'tool.saver': 'バッテリー節約',
+  'tool.saver.sub': '赤色・減光・更新を減らす',
+  'saver.on': 'バッテリー節約オン',
   'tool.outlook': '5夜の見通し',
   'tool.outlook.sub': 'ベストな夜を選ぶ',
   'tool.gaps': '雲の切れ間ハンター',

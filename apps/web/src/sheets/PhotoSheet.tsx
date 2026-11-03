@@ -1,6 +1,8 @@
-import { brightnessFrom, expectation, npfSeconds, rule500Seconds, suggestExposure } from '@nordurljos/core';
+import { brightnessFrom, expectation, npfSeconds, rule500Seconds, suggestExposure, suggestFromShots, type Brightness, type ShotEntry } from '@nordurljos/core';
+import { useShots } from '../lib/shots';
+import { idbGet, idbSet, thumbnail } from '../lib/idb';
 import { AnimatePresence, motion } from 'motion/react';
-import { Aperture, Eye, Timer } from 'lucide-react';
+import { Aperture, Camera as CameraIcon, Eye, ImagePlus, Sparkles, Timer, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { spring } from '../design/tokens';
 import type { Conditions } from '../lib/conditions';
@@ -99,6 +101,8 @@ export function PhotoSheet({ c, open, onClose }: { c: Conditions; open: boolean;
         )}
       </Section>
 
+      <ShotLog bright={bright} suggestion={s} c={c} />
+
       <Section title="Long-exposure timer">
         <ExposureTimer seconds={Math.max(1, Math.round(s.shutter))} />
       </Section>
@@ -119,5 +123,117 @@ export function PhotoSheet({ c, open, onClose }: { c: Conditions; open: boolean;
         </ol>
       </Section>
     </Sheet>
+  );
+}
+
+function Thumb({ k }: { k: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    idbGet<string>(k).then((v) => setSrc(v ?? null)).catch(() => {});
+  }, [k]);
+  return src ? <img src={src} alt="Your aurora shot" className="h-14 w-14 shrink-0 rounded-[12px] object-cover" /> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[12px] bg-[rgb(255_255_255/0.06)]"><CameraIcon size={16} strokeWidth={1.5} className="text-ink-3" aria-hidden /></span>;
+}
+
+/** Shot log: save settings + conditions with each photo; learn from your best shots. */
+function ShotLog({ bright, suggestion, c }: { bright: Brightness; suggestion: { iso: number; shutter: number; aperture: number }; c: Conditions }) {
+  const { shots, add, remove } = useShots();
+  const lens = useSettings((st) => st.lens);
+  const mine = suggestFromShots(shots, bright);
+  const [iso, setIso] = useState(String(suggestion.iso));
+  const [shutter, setShutter] = useState(String(suggestion.shutter));
+  const [aperture, setAperture] = useState(String(suggestion.aperture));
+  const [rating, setRating] = useState<ShotEntry['rating']>('good');
+  const [note, setNote] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setIso(String(suggestion.iso));
+    setShutter(String(suggestion.shutter));
+    setAperture(String(suggestion.aperture));
+  }, [suggestion.iso, suggestion.shutter, suggestion.aperture]);
+  const field = 'h-11 w-full rounded-[var(--r-sm)] bg-[rgb(255_255_255/0.07)] px-3 text-[16px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--aurora-rgb))]';
+  return (
+    <Section title="Shot log">
+      {mine && (
+        <div className="my-2 flex items-start gap-2 rounded-[var(--r-md)] bg-[rgb(var(--aurora-rgb)/0.12)] p-3 text-[14px]">
+          <Sparkles size={16} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            From your best shots: <span className="font-medium tabular-nums">ISO {mine.iso} · {fmtShutter(mine.shutter)} · f/{mine.aperture}</span>
+            <span className="block text-[12px] text-ink-3">{mine.note}</span>
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-2 py-2">
+        <label className="text-[12px] text-ink-3">ISO<input inputMode="numeric" value={iso} onChange={(e) => setIso(e.target.value)} className={field} /></label>
+        <label className="text-[12px] text-ink-3">Shutter (s)<input inputMode="decimal" value={shutter} onChange={(e) => setShutter(e.target.value)} className={field} /></label>
+        <label className="text-[12px] text-ink-3">Aperture f/<input inputMode="decimal" value={aperture} onChange={(e) => setAperture(e.target.value)} className={field} /></label>
+      </div>
+      <div className="flex gap-2 py-1" role="radiogroup" aria-label="How did it turn out?">
+        {(['good', 'ok', 'bad'] as const).map((r) => (
+          <button key={r} role="radio" aria-checked={rating === r} onClick={() => setRating(r)} className={`min-h-[44px] flex-1 rounded-full text-[14px] capitalize ${rating === r ? 'bg-[rgb(var(--aurora-rgb)/0.25)] shadow-[inset_0_0_0_1px_rgb(var(--aurora-rgb)/0.8)]' : 'bg-[rgb(255_255_255/0.06)] text-ink-2'}`}>
+            {r === 'good' ? 'Great' : r === 'ok' ? 'Okay' : 'Missed'}
+          </button>
+        ))}
+      </div>
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" maxLength={140} className={`${field} mt-2`} aria-label="Note" />
+      <div className="mt-2 flex gap-2">
+        <label className="flex min-h-[48px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-[rgb(255_255_255/0.06)] text-[14px]">
+          <ImagePlus size={16} strokeWidth={1.5} aria-hidden /> {photo ? 'Photo added' : 'Add photo'}
+          <input type="file" accept="image/*" className="sr-only" onChange={async (e) => e.target.files?.[0] && setPhoto(await thumbnail(e.target.files[0]))} />
+        </label>
+        <Press
+          className="h-12 flex-1 text-[15px]"
+          variant="accent"
+          hapticKind="success"
+          onClick={async () => {
+            let photoKey: string | null = null;
+            if (photo) {
+              photoKey = `shot-${Date.now()}`;
+              await idbSet(photoKey, photo).catch(() => (photoKey = null));
+            }
+            add({
+              iso: Number(iso) || suggestion.iso,
+              shutter: Number(shutter) || suggestion.shutter,
+              aperture: Number(aperture) || suggestion.aperture,
+              focalMm: lens.focalMm,
+              brightness: bright,
+              rating,
+              score: c.score?.score ?? null,
+              kp: c.sw.data?.data.kp.now?.kp ?? null,
+              cloud: c.clouds.data?.data.effective ?? null,
+              moonIllumination: c.plan.moon.illumination,
+              note,
+              photoKey,
+            });
+            setNote('');
+            setPhoto(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+          }}
+        >
+          {saved ? 'Logged ✓' : 'Log this shot'}
+        </Press>
+      </div>
+      {shots.length > 0 && (
+        <ul className="mt-3 divide-y divide-[rgb(255_255_255/0.06)]">
+          {shots.slice(0, 8).map((sh) => (
+            <li key={sh.id} className="flex items-center gap-3 py-2">
+              {sh.photoKey ? <Thumb k={sh.photoKey} /> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[12px] bg-[rgb(255_255_255/0.06)] text-[12px] text-ink-3">{sh.rating}</span>}
+              <div className="min-w-0 flex-1 text-[13px]">
+                <div className="tabular-nums">ISO {sh.iso} · {fmtShutter(sh.shutter)} · f/{sh.aperture} · {sh.focalMm} mm</div>
+                <div className="truncate text-ink-3">
+                  {new Date(sh.at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · Kp {sh.kp?.toFixed(1) ?? '—'} · {sh.rating === 'good' ? 'great' : sh.rating}
+                  {sh.note ? ` · ${sh.note}` : ''}
+                </div>
+              </div>
+              <button aria-label="Delete shot" onClick={() => remove(sh.id)} className="grid h-11 w-11 place-items-center text-ink-3">
+                <Trash2 size={15} strokeWidth={1.5} aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="pb-2 pt-1 text-[12px] text-ink-3">Stored on this phone only. Photos are shrunk and stripped of location data before saving.</p>
+    </Section>
   );
 }

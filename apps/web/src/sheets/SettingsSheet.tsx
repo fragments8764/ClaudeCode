@@ -59,6 +59,7 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
         <Segmented label="Reduce motion" value={s.reduceMotion} options={TRI} onChange={(v) => s.set('reduceMotion', v)} />
         <Segmented label="Reduce transparency" value={s.reduceTransparency} options={TRI} onChange={(v) => s.set('reduceTransparency', v)} />
         <Toggle label="Low power" hint="Calmer sky at 30 fps, lighter glass — saves battery in the cold" checked={s.lowPower} onChange={(v) => s.set('lowPower', v)} />
+        <Toggle label="Battery saver" hint="One tap: red-only, dimmed, still sky, refresh 3× less often, camera feeds paused. Alerts still arrive." checked={s.batterySaver} onChange={(v) => s.set('batterySaver', v)} />
       </Section>
 
       <Section title="Your preferences">
@@ -84,6 +85,8 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
       </Section>
 
       <Section title="Feedback">
+        <Toggle label="Spoken alerts" hint="Reads out big changes (e.g. “Aurora burst starting now, Kp 6”) while the app is open" checked={s.spokenAlerts} onChange={(v) => s.set('spokenAlerts', v)} />
+        <Toggle label="Auto driving mode" hint="Big, glanceable screen when GPS says you're moving; nothing to tap while driving" checked={s.autoDriving} onChange={(v) => s.set('autoDriving', v)} />
         <Toggle label="Haptics" hint="Subtle taps on key actions (Android; iOS in the app version)" checked={s.haptics} onChange={(v) => s.set('haptics', v)} />
         <Toggle label="Ambient sound" hint="A very soft pad that swells with aurora strength" checked={s.sound} onChange={(v) => s.set('sound', v)} />
         <Toggle label="“Go now” chime" hint="A gentle chime when the score crosses into Go" checked={s.chime} onChange={(v) => s.set('chime', v)} />

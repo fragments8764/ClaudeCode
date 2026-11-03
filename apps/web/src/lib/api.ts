@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
+import { useSettings } from './store';
 import { resolveWeights, type Corridor, type NightOutlook, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
@@ -41,11 +42,13 @@ function saveLast(key: string, data: unknown) {
 
 function usePersistedQuery<T>(key: string, path: string, refetchMs: number, enabled = true) {
   const last = loadLast<T>(key);
+  // Battery saver: refresh 3× less often (alerts still arrive via push).
+  const saver = useSettings((s) => s.batterySaver);
   const q = useQuery({
     queryKey: [key],
     queryFn: () => getJson<T>(path),
     enabled,
-    refetchInterval: refetchMs,
+    refetchInterval: saver ? refetchMs * 3 : refetchMs,
     refetchOnWindowFocus: true,
     staleTime: refetchMs / 2,
     retry: 2,
