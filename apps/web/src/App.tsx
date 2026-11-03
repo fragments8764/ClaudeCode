@@ -1,3 +1,4 @@
+import { consumeUpdateNotice, setUpdateGuard } from './lib/update';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
 import { CloudOff, Sparkles } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -237,6 +238,23 @@ export default function App() {
   useEffect(() => {
     if (isTab(route)) setTab(route);
   }, [route, setTab]);
+
+  // Auto-update: only reload when nothing is open and you're not typing or driving.
+  const busyRef = useRef(false);
+  busyRef.current = !!(tool || sheet || planFor || extra || driving || feedbackNight);
+  useEffect(() => {
+    setUpdateGuard(() => {
+      const el = document.activeElement;
+      const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable);
+      return !busyRef.current && !typing;
+    });
+    const v = consumeUpdateNotice();
+    if (v) {
+      setToast(t('update.done', { v }));
+      setTimeout(() => setToast(null), 4000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Smart haptic nudge: the score jumps ≥15 while the app is open
   const lastScore = useRef<number | null>(null);

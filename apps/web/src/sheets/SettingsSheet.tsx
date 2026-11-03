@@ -7,6 +7,8 @@ import { Press } from '../ui/Button';
 import { useSettings, type Language, type TriState, type Units } from '../lib/store';
 import { Section, Segmented, Toggle } from '../ui/Controls';
 import { Sheet } from '../ui/Sheet';
+import { useT } from '../lib/i18n';
+import { APP_VERSION, BUILD_ID, checkForUpdate, getUpdateStatus, onUpdateStatus, type UpdateStatus } from '../lib/update';
 
 const TRI: { value: TriState; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -152,6 +154,10 @@ export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClos
         ))}
       </Section>
 
+      <Section title="App">
+        <AppVersion />
+      </Section>
+
       <Section title="Data sources">
         <DataSources />
         <p className="pb-6 pt-1 text-[12px] leading-relaxed text-ink-3">
@@ -269,6 +275,30 @@ function OfflineMap() {
         </Press>
       )}
       <p className="mt-2 text-[12px] text-ink-3">Forecasts, spots, cameras list and the Learn guide are saved automatically each time you open the app.</p>
+    </div>
+  );
+}
+
+function AppVersion() {
+  const t = useT();
+  const [st, setSt] = useState<UpdateStatus>(getUpdateStatus);
+  useEffect(() => onUpdateStatus(setSt), []);
+  const label =
+    st === 'checking' ? t('update.checking') : st === 'current' ? t('update.current') : st === 'ready' ? t('update.ready') : st === 'offline' ? t('update.offline') : t('update.check');
+  const built = BUILD_ID === 'dev' ? 'dev build' : new Date(BUILD_ID).toLocaleDateString();
+  return (
+    <div className="flex min-h-[56px] items-center justify-between gap-3 py-2">
+      <span>
+        <span className="block text-[15px] font-medium">{t('update.version', { v: APP_VERSION })}</span>
+        <span className="block text-[13px] text-ink-3">
+          {built} · {t('update.auto')}
+        </span>
+      </span>
+      {st !== 'unsupported' && (
+        <Press onClick={() => void checkForUpdate(true)} disabled={st === 'checking'} className="h-11 shrink-0 px-4 text-[13px]" aria-live="polite">
+          {label}
+        </Press>
+      )}
     </div>
   );
 }

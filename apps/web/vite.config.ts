@@ -3,9 +3,14 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+import { readFileSync } from 'node:fs';
+
 const BG = '#02040a';
+const APP_VERSION: string = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+const BUILD_ID = new Date().toISOString();
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION), __BUILD_ID__: JSON.stringify(BUILD_ID) },
   plugins: [
     react(),
     tailwindcss(),

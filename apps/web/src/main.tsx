@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import App from './App';
+import { startAutoUpdate } from './lib/update';
 import './styles.css';
 
-registerSW({ immediate: true });
+void startAutoUpdate();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { networkMode: 'offlineFirst' } },

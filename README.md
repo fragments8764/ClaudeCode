@@ -14,7 +14,7 @@ photograph it. It's built for use outdoors at night, in the cold, with gloves on
   <img src="docs/screens/22-night-vision.png" width="180" alt="Night Vision">
 </p>
 
-**Status: v1.1, all 8 phases, design steps 1–4 and addendum Tiers 1–6 complete.** See [CHANGELOG.md](CHANGELOG.md) and
+**Status: v1.2, all 8 phases, design steps 1–4 and addendum Tiers 1–6 complete, plus auto-update.** See [CHANGELOG.md](CHANGELOG.md) and
 [docs/screens](docs/screens) for every screen.
 
 ## What's in it
@@ -35,6 +35,7 @@ photograph it. It's built for use outdoors at night, in the cold, with gloves on
 | **Field tools** | Tonight's checklist, battery saver (refresh ×3 slower, sky off), driving mode with large type and optional spoken alerts, and a photo shot log that suggests settings from your past shots. |
 | **Community** | Sightings verified when two or more people nearby agree, an optional photo, private sightings, report/hide moderation, a live layer on the map and a weekly feed. |
 | **Privacy & product** | Approximate location by default (precise only on request), export or delete your data, opt-in analytics and crash reports, Sources & credits, and server-side feature flags. |
+| **Auto-update** | The installed app checks for a new version every 30 min, when you reopen it and when signal returns. It switches over while it's in the background or after 20 s idle with nothing open (never mid-tap, while typing or in driving mode), then shows "Updated to v…". Settings → App shows the version and has "Check for updates". |
 | **Comfort** | Night Vision (all red), Reduce motion / transparency (system, on or off), Low power (30 fps sky), haptics, units, and 6 languages (EN, IS, DE, FR, 中文, 日本語). |
 
 **Design preview:** add `?demo=quiet|active|storm` to the URL to see stronger nights. It's clearly labelled "not live data".
@@ -46,7 +47,7 @@ Requires Node 20+.
 ```bash
 npm install
 npm run dev          # API on :8787, web on :5173 (Vite proxies /api → :8787)
-npm test             # 168 tests: core logic, parsers (recorded fixtures), server routes, web helpers
+npm test             # 174 tests: core logic, parsers (recorded fixtures), server routes, web helpers
 npm run backtest     # score validation against real OMNI2 storm/quiet nights → DATA_DIR/backtest/report.md
 npm run typecheck
 npm run build        # PWA + server bundle
@@ -90,6 +91,9 @@ Run it as a **single Node service** (Fly.io, Render, Railway, a VPS):
 npm ci && npm run build
 CONTACT_EMAIL=you@yourdomain.is DATA_DIR=/data PORT=8080 npm start
 ```
+
+To ship an update, just redeploy (bump `version` in the root `package.json` so users see the new number). Installed
+apps pick it up by themselves within about 30 minutes, or the next time they're opened.
 
 The server serves the PWA (immutable hashed assets, `no-cache` for the service worker and HTML), runs the alert poller and
 captures camera frames for timelapses. It's a single instance, because cache, timelapse frames and the JSON store are local.

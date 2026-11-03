@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — Auto-update (2026-11-03)
+
+- The app now updates itself: it checks for a new version every 30 minutes, when it comes back to the foreground and
+  when the network returns (before, browsers only checked on navigation or once a day).
+- New versions are applied at a safe moment: in the background, on reopening, or after 20 s idle with no sheet open,
+  no text field focused and not in driving mode. Before, the page could reload mid-tap. A "Updated to v…" toast follows.
+- If a code chunk from the previous deploy is gone, the app reloads once instead of breaking a screen.
+- Settings → App: version, build date and "Check for updates" (applies immediately).
+
 ## 1.1.0 — Addendum Tiers 1–6 (2026-11-03)
 
 ### Tier 1 — Reliability

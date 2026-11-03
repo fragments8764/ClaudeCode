@@ -9,6 +9,14 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'update.done': 'Updated to v{v}',
+  'update.check': 'Check for updates',
+  'update.current': 'Up to date',
+  'update.ready': 'Update ready · restart',
+  'update.checking': 'Checking…',
+  'update.offline': 'Offline · try later',
+  'update.version': 'Version {v}',
+  'update.auto': "Updates install by themselves when you're not using the app.",
   'tool.feed': 'Weekly feed',
   'tool.feed.sub': "This week's best aurora",
   'tool.checklist': "Tonight's checklist",
@@ -103,6 +111,14 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'update.done': 'Uppfært í v{v}',
+  'update.check': 'Leita að uppfærslum',
+  'update.current': 'Nýjasta útgáfa',
+  'update.ready': 'Uppfærsla tilbúin · endurræsa',
+  'update.checking': 'Athuga…',
+  'update.offline': 'Ótengt · reyndu síðar',
+  'update.version': 'Útgáfa {v}',
+  'update.auto': 'Uppfærslur setjast inn sjálfkrafa þegar þú ert ekki að nota appið.',
   'tool.feed': 'Vikulegt yfirlit',
   'tool.feed.sub': 'Bestu norðurljós vikunnar',
   'tool.checklist': 'Gátlisti kvöldsins',
@@ -196,6 +212,14 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'update.done': 'Aktualisiert auf v{v}',
+  'update.check': 'Nach Updates suchen',
+  'update.current': 'Aktuell',
+  'update.ready': 'Update bereit · neu starten',
+  'update.checking': 'Prüfe…',
+  'update.offline': 'Offline · später versuchen',
+  'update.version': 'Version {v}',
+  'update.auto': 'Updates installieren sich automatisch, wenn du die App nicht benutzt.',
   'tool.feed': 'Wochen-Feed',
   'tool.feed.sub': 'Die schönsten Polarlichter der Woche',
   'tool.checklist': 'Checkliste für heute',
@@ -289,6 +313,14 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'update.done': 'Mis à jour en v{v}',
+  'update.check': 'Rechercher des mises à jour',
+  'update.current': 'À jour',
+  'update.ready': 'Mise à jour prête · redémarrer',
+  'update.checking': 'Vérification…',
+  'update.offline': 'Hors ligne · réessayez plus tard',
+  'update.version': 'Version {v}',
+  'update.auto': "Les mises à jour s'installent seules quand vous n'utilisez pas l'app.",
   'tool.feed': 'Fil de la semaine',
   'tool.feed.sub': 'Les plus belles aurores de la semaine',
   'tool.checklist': 'Check-list du soir',
@@ -382,6 +414,14 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'update.done': '已更新至 v{v}',
+  'update.check': '检查更新',
+  'update.current': '已是最新',
+  'update.ready': '更新就绪 · 重启',
+  'update.checking': '正在检查…',
+  'update.offline': '离线 · 稍后再试',
+  'update.version': '版本 {v}',
+  'update.auto': '不使用应用时会自动安装更新。',
   'tool.feed': '每周精选',
   'tool.feed.sub': '本周最美极光',
   'tool.checklist': '今晚清单',
@@ -475,6 +515,14 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'update.done': 'v{v} に更新しました',
+  'update.check': 'アップデートを確認',
+  'update.current': '最新です',
+  'update.ready': '更新の準備完了 · 再起動',
+  'update.checking': '確認中…',
+  'update.offline': 'オフライン · 後で再試行',
+  'update.version': 'バージョン {v}',
+  'update.auto': 'アプリを使っていないときに自動で更新されます。',
   'tool.feed': '今週のフィード',
   'tool.feed.sub': '今週のベストオーロラ',
   'tool.checklist': '今夜のチェックリスト',

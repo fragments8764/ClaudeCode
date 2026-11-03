@@ -46,3 +46,14 @@ describe('offline map', () => {
     expect(t).toContain('https://t/3/3/2.pbf');
   });
 });
+
+import { shouldApply } from './update';
+describe('auto-update timing', () => {
+  const base = { pending: true, hidden: false, force: false, safe: true, idleMs: 60_000 };
+  it('does nothing without a new version', () => expect(shouldApply({ ...base, pending: false })).toBe(false));
+  it('applies while the app is in the background', () => expect(shouldApply({ ...base, safe: false, idleMs: 0, hidden: true })).toBe(true));
+  it('applies when idle with nothing open', () => expect(shouldApply(base)).toBe(true));
+  it('waits while a sheet is open, you are typing or driving', () => expect(shouldApply({ ...base, safe: false })).toBe(false));
+  it('waits while you are actively using the app', () => expect(shouldApply({ ...base, idleMs: 3_000 })).toBe(false));
+  it('applies at once after a manual check', () => expect(shouldApply({ ...base, safe: false, idleMs: 0, force: true })).toBe(true));
+});
