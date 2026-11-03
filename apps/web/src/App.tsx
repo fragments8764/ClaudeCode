@@ -1,22 +1,49 @@
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
-import { CloudOff } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { CloudOff, Sparkles } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { calm, scoreColor, spring } from './design/tokens';
 import { useTilt } from './hooks/useTilt';
 import { useConditions } from './lib/conditions';
+import { haptic } from './lib/haptics';
+import { useT } from './lib/i18n';
+import { stats, useJournal } from './lib/journal';
+import { shareFile } from './lib/share';
+import { setPadIntensity, startPad, stopPad } from './lib/sound';
 import { applyPrefs, useReducedMotionPref, useSettings, type Tab } from './lib/store';
 import { ActivitySheet, CloudSheet, MoonSheet } from './sheets/DetailSheets';
-import { LocationSheet } from './sheets/LocationSheet';
-import { SettingsSheet } from './sheets/SettingsSheet';
-import { CamerasScreen } from './screens/Cameras';
 import { ClearNowSheet } from './sheets/ClearNowSheet';
+import { LocationSheet } from './sheets/LocationSheet';
+import { SafetySheet } from './sheets/SafetySheet';
+import { ToolsSheet, type ToolId } from './sheets/ToolsSheet';
+import { CamerasScreen } from './screens/Cameras';
 import { SpaceScreen } from './screens/Space';
 import { TonightScreen, type SheetId } from './screens/Tonight';
+import { WidgetScreen } from './screens/Widget';
 import { AuroraSky } from './sky/AuroraSky';
 import { Glass, RefractionDefs } from './ui/Glass';
+import { Onboarding } from './ui/Onboarding';
 import { TabBar } from './ui/TabBar';
 
 const MapScreen = lazy(() => import('./screens/MapScreen'));
+// Rarely-used tools are split out of the first load and prefetched when the browser is idle.
+const loaders = {
+  photo: () => import('./sheets/PhotoSheet'),
+  ar: () => import('./screens/ArCompass'),
+  journal: () => import('./sheets/JournalSheet'),
+  learn: () => import('./sheets/LearnSheet'),
+  sighting: () => import('./sheets/SightingSheet'),
+  planner: () => import('./sheets/PlannerSheet'),
+  ambient: () => import('./screens/Ambient'),
+  settings: () => import('./sheets/SettingsSheet'),
+};
+const PhotoSheet = lazy(() => loaders.photo().then((m) => ({ default: m.PhotoSheet })));
+const ArCompass = lazy(() => loaders.ar().then((m) => ({ default: m.ArCompass })));
+const JournalSheet = lazy(() => loaders.journal().then((m) => ({ default: m.JournalSheet })));
+const LearnSheet = lazy(() => loaders.learn().then((m) => ({ default: m.LearnSheet })));
+const SightingSheet = lazy(() => loaders.sighting().then((m) => ({ default: m.SightingSheet })));
+const PlannerSheet = lazy(() => loaders.planner().then((m) => ({ default: m.PlannerSheet })));
+const Ambient = lazy(() => loaders.ambient().then((m) => ({ default: m.Ambient })));
+const SettingsSheet = lazy(() => loaders.settings().then((m) => ({ default: m.SettingsSheet })));
 
 const ORDER: Tab[] = ['tonight', 'map', 'cameras', 'space'];
 const isTab = (s: string): s is Tab => (ORDER as string[]).includes(s);
@@ -36,16 +63,46 @@ function useOnline() {
   return online;
 }
 
+function useHashRoute() {
+  const [h, setH] = useState(() => location.hash.replace(/^#\/?/, ''));
+  useEffect(() => {
+    const on = () => setH(location.hash.replace(/^#\/?/, ''));
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  return h;
+}
+
 export default function App() {
-  const { nightVision, reduceTransparency, lowPower, tab, setTab, reduceMotion } = useSettings();
+  const { nightVision, reduceTransparency, lowPower, tab, setTab, reduceMotion, onboarded, sound, location: loc } = useSettings();
   const reduced = useReducedMotionPref();
   const online = useOnline();
+  const t = useT();
   const c = useConditions();
+  const route = useHashRoute();
   const [sheet, setSheet] = useState<SheetId | null>(null);
+  const [tool, setTool] = useState<ToolId | null>(null);
   const close = useCallback(() => setSheet(null), []);
+  const closeTool = useCallback(() => setTool(null), []);
   const [dir, setDir] = useState(1);
   const [camId, setCamId] = useState<string | null>(null);
   const [clearNow, setClearNow] = useState(false);
+  const [mapIntent, setMapIntent] = useState<'best' | null>(null);
+  const [onbStep, setOnbStep] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Lazy sheets mount on first open and stay mounted so their exit animations still play.
+  const [mounted, setMounted] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const k = tool ?? (sheet === 'settings' ? 'settings' : null);
+    if (k && !mounted.has(k)) setMounted((m) => new Set(m).add(k));
+  }, [tool, sheet, mounted]);
+  useEffect(() => {
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2500));
+    const id = setTimeout(() => idle(() => Object.values(loaders).forEach((l) => l().catch(() => {}))), 4000);
+    return () => clearTimeout(id);
+  }, []);
+  const has = (k: string) => mounted.has(k);
 
   useEffect(() => applyPrefs({ nightVision, reduceTransparency, lowPower }), [nightVision, reduceTransparency, lowPower]);
   useTilt(!reduced && !lowPower);
@@ -57,27 +114,86 @@ export default function App() {
     else root.style.setProperty('--aurora-rgb', scoreColor(c.score?.score ?? 15).join(' '));
   }, [c.score?.score, nightVision]);
 
-  // Hash ⇄ tab (deep links, back button)
+  // Hash ⇄ tab (deep links, manifest shortcuts, back button)
   useEffect(() => {
-    const fromHash = () => {
-      const h = location.hash.replace(/^#\/?/, '');
-      if (isTab(h)) setTab(h);
-    };
-    fromHash();
-    window.addEventListener('hashchange', fromHash);
-    return () => window.removeEventListener('hashchange', fromHash);
-  }, [setTab]);
+    if (isTab(route)) setTab(route);
+  }, [route, setTab]);
 
-  const go = (t: Tab) => {
-    setDir(ORDER.indexOf(t) >= ORDER.indexOf(tab) ? 1 : -1);
-    setTab(t);
-    history.replaceState(null, '', `#/${t}`);
+  // Smart haptic nudge: the score jumps ≥15 while the app is open
+  const lastScore = useRef<number | null>(null);
+  useEffect(() => {
+    const s = c.score?.score;
+    if (s == null) return;
+    if (lastScore.current != null && s - lastScore.current >= 15 && s >= 25) {
+      haptic('nudge');
+      setToast(t('nudge', { n: s }));
+      setTimeout(() => setToast(null), 6000);
+    }
+    lastScore.current = s;
+  }, [c.score?.score, t]);
+
+  // Ambient sound pad follows sky intensity (started from the Settings toggle gesture)
+  useEffect(() => {
+    if (sound) startPad(c.sky.intensity);
+    else stopPad();
+  }, [sound]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (sound) setPadIntensity(c.sky.intensity);
+  }, [c.sky.intensity, sound]);
+
+  const go = (to: Tab) => {
+    setDir(ORDER.indexOf(to) >= ORDER.indexOf(tab) ? 1 : -1);
+    setTab(to);
+    history.replaceState(null, '', `#/${to}`);
   };
+
+  const shareTonight = async (postcard = false) => {
+    const st = stats(useJournal.getState().entries);
+    const { renderTonightCard } = await import('./lib/shareCard');
+    const file = await renderTonightCard({
+      score: c.score?.score ?? 0,
+      headline: c.score ? t(`verdict.${c.score.verdict}`) : '',
+      place: loc.label,
+      window: c.best,
+      kp: c.sw.data?.data.kp.now?.kp ?? null,
+      cloud: c.clouds.data?.data.effective ?? null,
+      night: nightVision,
+      postcard: postcard ? { nights: st.nightsOut, seen: st.nightsSeen } : undefined,
+    });
+    const r = await shareFile(file, 'Tonight in Iceland', `Aurora score ${c.score?.score ?? '—'} near ${loc.label}`);
+    setToast(r === 'downloaded' ? 'Card saved to your downloads' : 'Shared');
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const pickTool = (id: ToolId) => {
+    haptic('tap');
+    if (id === 'share') {
+      setTool(null);
+      shareTonight().catch(() => {});
+      return;
+    }
+    setTool(id);
+  };
+
+  // Onboarding brightens the sky as you progress
+  const showOnb = !onboarded && route !== 'widget';
+  const sky = useMemo(() => (showOnb ? { ...c.sky, intensity: 0.25 + onbStep * 0.3, speed: 0.6 + onbStep * 0.25 } : c.sky), [showOnb, onbStep, c.sky]);
+
+  if (route === 'widget') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <AuroraSky params={c.sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
+        <main className="relative" style={{ zIndex: 'var(--z-content)' }}>
+          <WidgetScreen c={c} />
+        </main>
+      </MotionConfig>
+    );
+  }
 
   const screen = (() => {
     switch (tab) {
       case 'tonight':
-        return <TonightScreen c={c} open={setSheet} />;
+        return <TonightScreen c={c} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} />;
       case 'space':
         return <SpaceScreen c={c} />;
       case 'map':
@@ -85,6 +201,8 @@ export default function App() {
           <Suspense fallback={<div className="grid min-h-dvh place-items-center"><div className="skeleton h-10 w-48 rounded-full" /></div>}>
             <MapScreen
               c={c}
+              intent={mapIntent}
+              clearIntent={() => setMapIntent(null)}
               openCamera={(id) => {
                 go('cameras');
                 setCamId(id);
@@ -100,52 +218,59 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduceMotion === 'on' ? 'always' : reduceMotion === 'off' ? 'never' : 'user'} transition={reduced ? calm : spring}>
       <RefractionDefs />
-      <AuroraSky params={c.sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
+      <AuroraSky params={sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
 
       <AnimatePresence>
-        {!online && (
-          <motion.div className="fixed inset-x-0 top-0 flex justify-center px-4 pt-[max(10px,env(safe-area-inset-top))]" style={{ zIndex: 'var(--z-toast)' }} initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}>
+        {(!online || toast) && (
+          <motion.div className="pointer-events-none fixed inset-x-0 top-0 flex justify-center px-4 pt-[max(10px,env(safe-area-inset-top))]" style={{ zIndex: 'var(--z-toast)' }} initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}>
             <Glass radius="pill" role="status" className="flex items-center gap-2 px-4 py-2 text-[13px]">
-              <CloudOff size={15} strokeWidth={1.5} aria-hidden /> Offline — showing saved data. Sun & moon stay live.
+              {!online ? <CloudOff size={15} strokeWidth={1.5} aria-hidden /> : <Sparkles size={15} strokeWidth={1.5} aria-hidden />}
+              {!online ? t('offline.banner') : toast}
             </Glass>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <LayoutGroup>
-        <main className="relative mx-auto max-w-xl" style={{ zIndex: 'var(--z-content)' }}>
-          <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-            <motion.div
-              key={tab}
-              custom={dir}
-              // The map is full-bleed `position: fixed`; a transformed ancestor would collapse it,
-              // so the Map tab cross-fades while the others slide.
-              variants={
-                tab === 'map'
-                  ? { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } }
-                  : {
-                      enter: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * 28 }),
-                      center: { opacity: 1, x: 0, transitionEnd: { transform: 'none' } },
-                      exit: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * -28 }),
-                    }
-              }
-              initial="enter"
-              animate="center"
-              exit="exit"
-            >
-              {screen}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+      {!showOnb && tool !== 'ambient' && (
+        <LayoutGroup>
+          <main className="relative mx-auto max-w-xl" style={{ zIndex: 'var(--z-content)' }}>
+            <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+              <motion.div
+                key={tab}
+                custom={dir}
+                // The map is full-bleed `position: fixed`; a transformed ancestor would collapse it,
+                // so the Map tab cross-fades while the others slide.
+                variants={
+                  tab === 'map'
+                    ? { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } }
+                    : {
+                        enter: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * 28 }),
+                        center: { opacity: 1, x: 0, transitionEnd: { transform: 'none' } },
+                        exit: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * -28 }),
+                      }
+                }
+                initial="enter"
+                animate="center"
+                exit="exit"
+              >
+                {screen}
+              </motion.div>
+            </AnimatePresence>
+          </main>
 
-        <TabBar tab={tab} onChange={go} />
+          <TabBar tab={tab} onChange={go} />
 
-        <CloudSheet c={c} open={sheet === 'cloud'} onClose={close} />
-        <ActivitySheet c={c} open={sheet === 'activity'} onClose={close} />
-        <MoonSheet c={c} open={sheet === 'moon'} onClose={close} />
-      </LayoutGroup>
-      <SettingsSheet open={sheet === 'settings'} onClose={close} />
+          <CloudSheet c={c} open={sheet === 'cloud'} onClose={close} />
+          <ActivitySheet c={c} open={sheet === 'activity'} onClose={close} />
+          <MoonSheet c={c} open={sheet === 'moon'} onClose={close} />
+        </LayoutGroup>
+      )}
+
+      {showOnb && <Onboarding step={onbStep} setStep={setOnbStep} onDone={() => setOnbStep(0)} />}
+
+      <Suspense fallback={null}>{has('settings') && <SettingsSheet open={sheet === 'settings'} onClose={close} />}</Suspense>
       <LocationSheet open={sheet === 'location'} onClose={close} />
+      <ToolsSheet open={sheet === 'tools'} onClose={close} onPick={(id) => (setSheet(null), pickTool(id))} />
       <ClearNowSheet
         open={clearNow}
         onClose={() => setClearNow(false)}
@@ -155,6 +280,27 @@ export default function App() {
           setCamId(id);
         }}
       />
+      <SafetySheet c={c} open={tool === 'safety'} onClose={closeTool} />
+      <Suspense fallback={null}>
+        {has('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}
+        {has('planner') && (
+          <PlannerSheet
+            c={c}
+            open={tool === 'planner'}
+            onClose={closeTool}
+            onFindSpot={() => {
+              setTool(null);
+              setMapIntent('best');
+              go('map');
+            }}
+          />
+        )}
+        {has('photo') && <PhotoSheet c={c} open={tool === 'photo'} onClose={closeTool} />}
+        {has('journal') && <JournalSheet c={c} open={tool === 'journal'} onClose={closeTool} onPostcard={() => shareTonight(true).catch(() => {})} />}
+        {has('learn') && <LearnSheet open={tool === 'learn'} onClose={closeTool} />}
+        {has('ar') && <ArCompass c={c} open={tool === 'ar'} onClose={closeTool} />}
+        {has('ambient') && <Ambient c={c} open={tool === 'ambient'} onClose={closeTool} />}
+      </Suspense>
     </MotionConfig>
   );
 }

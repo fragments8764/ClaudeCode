@@ -114,7 +114,9 @@ export function Sheet({ open, onClose, title, header, children, initial = 'half'
               </button>
             </div>
             <div
-              className="no-scrollbar flex-1 overflow-y-auto overscroll-contain px-6 pb-[calc(env(safe-area-inset-bottom)+24px)]"
+              tabIndex={0}
+              aria-label="Sheet content"
+              className="no-scrollbar flex-1 overflow-y-auto overscroll-contain outline-none focus-visible:outline-2 px-6 pb-[calc(env(safe-area-inset-bottom)+24px)]"
               style={{ maxHeight: `calc(${DETENTS[detent] * 100}vh - 84px)` }}
             >
               {children}

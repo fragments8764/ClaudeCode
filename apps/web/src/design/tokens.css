@@ -19,7 +19,7 @@
   /* — Text — */
   --c-text: #eef3fb;
   --c-text-2: rgb(238 243 251 / 0.66);
-  --c-text-3: rgb(238 243 251 / 0.42);
+  --c-text-3: rgb(238 243 251 / 0.56); /* ≥4.5:1 on the midnight base at 12px */
 
   /* — Aurora accents (use sparingly) — */
   --c-emerald: #4ade80;

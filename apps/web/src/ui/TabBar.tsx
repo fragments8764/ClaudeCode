@@ -3,6 +3,7 @@ import { Camera, Map, Moon, Orbit, type LucideIcon } from 'lucide-react';
 import { spring } from '../design/tokens';
 import { haptic } from '../lib/haptics';
 import type { Tab } from '../lib/store';
+import { useT } from '../lib/i18n';
 import { Glass } from './Glass';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -14,6 +15,7 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
 
 /** Floating glass tab bar. The active tab has a liquid pill that slides & morphs between tabs. */
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const t = useT();
   return (
     <nav
       aria-label="Main"
@@ -22,7 +24,8 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
     >
       <Glass refract radius="pill" className="pointer-events-auto flex w-full max-w-md items-center gap-1 p-1.5" role="tablist">
         <LayoutGroup id="tabs">
-          {TABS.map(({ id, label, icon: Icon }) => {
+          {TABS.map(({ id, icon: Icon }) => {
+            const label = t(`tab.${id}`);
             const active = id === tab;
             return (
               <button

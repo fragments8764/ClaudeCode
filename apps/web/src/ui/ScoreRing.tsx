@@ -2,13 +2,15 @@ import { animate, motion, useMotionValue, useMotionValueEvent, useSpring, useTra
 import { useEffect, useId, useState } from 'react';
 import { rgb, scoreColor } from '../design/tokens';
 import { useReducedMotionPref } from '../lib/store';
+import { useT } from '../lib/i18n';
 
 /**
  * Giant, calm score ring. Thin stroke, gradient that shifts grey → teal → green → magenta with
  * the score, slowly rotating sheen, number counts up with a spring. `null` = loading shimmer.
  */
-export function ScoreRing({ score, size = 264, night = false }: { score: number | null; size?: number; night?: boolean }) {
+export function ScoreRing({ score, size = 264, night = false, celebrate = 0 }: { score: number | null; size?: number; night?: boolean; celebrate?: number }) {
   const reduced = useReducedMotionPref();
+  const t = useT();
   const id = useId().replace(/:/g, '');
   const stroke = 5;
   const r = size / 2 - stroke * 3;
@@ -37,7 +39,20 @@ export function ScoreRing({ score, size = 264, night = false }: { score: number 
   const c2 = night ? [220, 60, 60] as const : scoreColor(target);
 
   return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+    <motion.div
+      key={`ring-${celebrate}`}
+      className="relative grid place-items-center"
+      style={{ width: size, height: size }}
+      initial={celebrate && !reduced ? { scale: 1 } : false}
+      animate={celebrate && !reduced ? { scale: [1, 1.07, 0.98, 1] } : undefined}
+      transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {/* "Go now" celebration: a shimmer sweeps once around the ring */}
+      {celebrate > 0 && !reduced && (
+        <motion.svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="pointer-events-none absolute inset-0" aria-hidden initial={{ rotate: -90, opacity: 1 }} animate={{ rotate: 270, opacity: 0 }} transition={{ duration: 1.6, ease: [0.4, 0, 0.2, 1] }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="white" strokeWidth={stroke * 2.2} strokeLinecap="round" strokeDasharray={`${C * 0.12} ${C}`} style={{ filter: 'blur(3px)' }} />
+        </motion.svg>
+      )}
       {/* soft scrim keeps the number ≥ 4.5:1 even over a bright storm sky */}
       <div aria-hidden className="absolute inset-[12%] rounded-full" style={{ background: 'radial-gradient(circle, rgb(2 4 10 / 0.42) 0%, rgb(2 4 10 / 0.18) 55%, transparent 72%)' }} />
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden>
@@ -84,9 +99,9 @@ export function ScoreRing({ score, size = 264, night = false }: { score: number 
           </div>
         )}
         <div className="mt-2 text-[11px] uppercase tracking-[0.28em] text-ink-2" aria-hidden>
-          Aurora score
+          {t('ring.label')}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

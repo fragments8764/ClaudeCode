@@ -137,7 +137,7 @@ export function parseRoadConditions(data: unknown): RoadCondition[] {
     return [{
       segmentId: id,
       name: String(r.FulltNafnButs ?? r.StuttNafnButs ?? ''),
-      condition: en && en !== 'Not known' ? en : is,
+      condition: en && en !== 'Not known' ? en : code === 'EKKI_I_THJONUSTU' ? 'Not serviced (no winter maintenance)' : is,
       conditionIs: is,
       code,
       updated: isoUtc(r.DagsSkrad),

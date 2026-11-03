@@ -3,20 +3,35 @@
 > **Should I go out and look right now, and where?**
 
 A mobile-first PWA for aurora hunting in Iceland. It combines darkness, moon, cloud cover and space weather into one
-clear answer, built to be used outdoors at night, in the cold, with gloves on and patchy signal.
+calm answer, then shows you where the sky is clear, which cameras to check, how to drive there safely, and how to
+photograph it. It's built for use outdoors at night, in the cold, with gloves on and patchy signal.
 
 <p>
-  <img src="docs/tonight-live.png" width="200" alt="Tonight screen with live data">
-  <img src="docs/tonight-storm-demo.png" width="200" alt="Tonight screen, storm demo preview">
-  <img src="docs/sheet-clouds.png" width="200" alt="Cloud detail sheet">
-  <img src="docs/night-vision.png" width="200" alt="Night Vision mode">
+  <img src="docs/screens/03-tonight-live.png" width="180" alt="Tonight screen">
+  <img src="docs/screens/02-tonight-demo-active.png" width="180" alt="Tonight on an active night (demo)">
+  <img src="docs/screens/11-map.png" width="180" alt="Live aurora map">
+  <img src="docs/screens/14-cameras.png" width="180" alt="Camera wall">
+  <img src="docs/screens/22-night-vision.png" width="180" alt="Night Vision">
 </p>
 
-**Status:** Phase 1 (Foundation) ✅ · Phase 2 data (Aurora Score, OVATION) ✅ · Design overhaul step 1 (design system, liquid glass,
-tab bar, Tonight hero, live aurora sky) ✅ — awaiting design review. See [CHANGELOG.md](CHANGELOG.md) and the [roadmap](#roadmap).
+**Status: v1.0, all 8 phases and design steps 1–4 complete.** See [CHANGELOG.md](CHANGELOG.md) and
+[docs/screens](docs/screens) for every screen.
 
-**Design preview:** append `?demo=quiet`, `?demo=active` or `?demo=storm` to the URL to preview how the sky, ring and verdict look
-on stronger nights. It is clearly badged "not live data".
+## What's in it
+
+| Tab / tool | What it does |
+| --- | --- |
+| **Tonight** | Giant score ring (0–100) with a one-line verdict, the limiting factor, and Cloud / Kp / Moon pills that expand into detail sheets. Also the best-window countdown, a weather-warning chip and pull-to-refresh. The "Go now" moment gets a pulse, a shimmer and an optional chime. |
+| **Map** | MapLibre over a muted dark base: OVATION aurora oval as a glow, cloud cover as mist that cross-fades by hour, the darkness terminator, VIIRS light pollution, dark-sky spots (pulse when clear and dark), webcams, community sightings. Time scrubber covers −3 h → +48 h with hourly snap, haptic ticks and play. |
+| **Best spot nearby** | Ranks curated spots by cloud, darkness, activity and light pollution within 60–500 km. Shows drive time, a **Start driving** link (Apple/Google Maps), "tell someone your plan", and return-time and road warnings. |
+| **Cameras** | Two-column glass wall: live status, distance, cloud tag, favourites, filters, a fullscreen viewer (swipe down to close) and a **timelapse** of the last few hours. Plus **Is it clear right now?**: IMO ceilometer observation, the forecast model and the closest camera. |
+| **Space** | Substorm nowcast with a live ground magnetometer (Narsarsuaq/Abisko), Kp bars (24 h + 3 days), Bz, solar wind speed and density sparklines, each with plain-English captions. |
+| **Tools** | I see aurora! (community log), Tonight's plan, Safety & roads, Photographer mode, AR sky compass, Journal & badges, Share tonight (story card), Ambient mode, Learn (offline cheat sheet). |
+| **Alerts** | Web push for score ≥ threshold, Kp forecast, Bz flips south, substorm likely or onset, and a cloud gap opening. Has quiet hours and per-rule cooldowns, and the server polls every 5 minutes. |
+| **Offline** | The app shell and the map chunk are precached. API responses are network-first with the last good copy kept. "Save Iceland map" downloads about 300 vector tiles, glyphs and sprites. Sun and moon are computed on the device. |
+| **Comfort** | Night Vision (all red), Reduce motion / transparency (system, on or off), Low power (30 fps sky), haptics, units, and 6 languages (EN, IS, DE, FR, 中文, 日本語). |
+
+**Design preview:** add `?demo=quiet|active|storm` to the URL to see stronger nights. It's clearly labelled "not live data".
 
 ## Quick start
 
@@ -25,138 +40,141 @@ Requires Node 20+.
 ```bash
 npm install
 npm run dev          # API on :8787, web on :5173 (Vite proxies /api → :8787)
-```
-
-Open http://localhost:5173. To try it on your phone on the same Wi-Fi, use `http://<your-computer-ip>:5173`. GPS needs
-HTTPS on most phones, but you can still pick a base from the list.
-
-```bash
-npm test             # vitest: core + server
+npm test             # 111 tests: core logic, parsers, server routes, web helpers
 npm run typecheck
-npm run build        # builds web (PWA) + server bundle
+npm run build        # PWA + server bundle
 npm start            # production: one Node process serves the API and the PWA on :8787
 ```
 
+On your phone (same Wi-Fi), open `http://<computer-ip>:5173`. GPS, install and push need HTTPS, so deploy behind TLS
+for field use.
+
 ### Environment variables
 
-Copy `.env.example`. None are required for local dev.
+See `.env.example`. **None are required.**
 
-| Var | Where | Purpose |
-| --- | --- | --- |
-| `CONTACT_EMAIL` | server | Added to the User-Agent. MET Norway's terms require contact info. **Use a real address**: placeholder domains like `example.com` get HTTP 403. |
-| `PORT` | server | Default `8787`. |
-| `CORS_ORIGIN` | server | Default `*` (data is public and read-only). Set it if you host the web app on another origin. |
-| `WEB_DIST` | server | Path to the built PWA (default `apps/web/dist`). |
-| `VITE_API_BASE` | web build | Only if the API is on a different origin. |
+| Var | Purpose |
+| --- | --- |
+| `CONTACT_EMAIL` | Added to the User-Agent (MET Norway terms). Use a real address; placeholder domains get 403. |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web-push keys. If unset, a pair is generated once into `DATA_DIR/vapid.json`. Set them in production so subscriptions survive redeploys. |
+| `CONFIG_DIR` / `DATA_DIR` | `config/` (spots, cameras) and `data/` (subscriptions, sightings, keys). Mount `DATA_DIR` on a persistent volume. |
+| `PORT`, `CORS_ORIGIN`, `WEB_DIST`, `ALERT_INTERVAL_MS`, `VITE_API_BASE` | As named. |
 
 ### API keys
 
-**Phase 1 needs none.** NOAA SWPC, Open-Meteo and MET Norway are keyless. Coming up:
+**No accounts are needed.** Every source is keyless (NOAA, Open-Meteo, MET Norway, IMO, Vegagerðin, INTERMAGNET,
+OpenFreeMap, NASA GIBS). VAPID keys are self-generated.
 
-- **Map tiles (Phase 3):** OpenFreeMap needs no key; MapTiler or Stadia need a free key if you prefer their styles.
-- **Push (Phase 6):** VAPID keys, which you generate yourself (`npx web-push generate-vapid-keys`). No account needed.
-- Vegagerðin (road.is) / Icelandic Met Office will be evaluated in Phases 4–5. Their terms decide embed vs. link-out.
+### Editing spots and cameras
+
+`config/spots.json` and `config/cameras.json` are re-read when they change, so no restart is needed. Cameras are either
+`embed: "image"` (a public still image we proxy, with attribution) or `embed: "link"` (opens the operator's own page).
+Only use `image` where the operator's terms allow it.
 
 ## Deploy
 
-**Single Node service** (Fly.io, Render, Railway, a VPS):
+Run it as a **single Node service** (Fly.io, Render, Railway, a VPS):
 
 ```bash
 npm ci && npm run build
-CONTACT_EMAIL=you@yourdomain.is PORT=8080 npm start
+CONTACT_EMAIL=you@yourdomain.is DATA_DIR=/data PORT=8080 npm start
 ```
 
-The server serves the PWA with correct cache headers: hashed assets are immutable, while `sw.js` and HTML use `no-cache`.
-Put it behind HTTPS, because PWA install, GPS and push all require HTTPS.
+The server serves the PWA (immutable hashed assets, `no-cache` for the service worker and HTML), runs the alert poller and
+captures camera frames for timelapses. It's a single instance, because cache, timelapse frames and the JSON store are local.
 
-**Cloudflare Workers:** `apps/server/src/app.ts` is runtime-agnostic Hono (`createApp({ fetcher })`). A Worker entry just
-needs to export `createApp(...)`, with the web `dist/` served by Pages. The in-memory cache works per isolate; swap it for
-the Cache API or KV for cross-isolate caching. This will be wired up when we pick the host.
+**Cloudflare Workers:** `apps/server/src/app.ts` is runtime-agnostic Hono. A Worker needs KV/D1 in place of the JSON store,
+the Cache API in place of the in-memory cache, and a Cron Trigger calling `services.runAlerts()`.
 
-## Design system
-
-All visual decisions live in `apps/web/src/design/`:
-
-| File | What |
-| --- | --- |
-| `tokens.css` | Colour (midnight base, aurora accents), glass recipe, radius, spacing, shadow, motion durations, type, z-layers. Mode switches on `<html>`: `data-mode="night"`, `data-transparency="reduced"`, `data-power="low"`, `data-refract`. |
-| `tokens.ts` | Springs (`stiffness 300, damping 30`), press scale, stagger, score colour ramp (grey → teal → green → magenta). |
-| `theme.css` | Tailwind aliases (`text-ink-2`, `bg-glass`, `rounded-xl`, …) → tokens. |
-| `glass.css` | Liquid glass: blur 32px + saturate 170%, 8% tint + live aurora tint, 1px gradient edge highlight, tilt-driven specular sheen, Chromium-only SVG refraction, glass skeleton shimmer, text scrim. |
-
-Components (`src/ui/`): `Glass`, `Press` (0.96 press, glow ripple, haptic), `TabBar` (morphing liquid pill), `Sheet` (peek/half/full, spring +
-rubber-band, drag handle), `ScoreRing`, `StatPill`/`StatHeader` (shared-element morph), `Sparkline`, `Toggle`, `Segmented`.
-The sky (`src/sky/`) is a WebGL1 shader driven by live Kp / Bz / solar-wind speed (`skyParams.ts`), with a CSS fallback.
-
-Accessibility & comfort: Reduce motion (system/on/off → `MotionConfig`), Reduce transparency (system/on/off, honours
-`prefers-reduced-transparency`), Low power (30 fps half-res sky, lighter glass, no sheen/refraction), Night Vision (all-red tokens,
-dimmed sky, set before first paint), 48px+ targets, screen-reader labels on every control and chart.
+**Native wrappers (later):** Capacitor gives iOS haptics, real home-screen and lock-screen widgets, and background
+location. The `#/widget` route is the web stand-in.
 
 ## Architecture
 
 ```
-packages/core     Pure TS, no I/O. Unit-tested.
-  astro.ts          sun/moon/twilight, 24 h night plan (sampling-based → works in polar night & midnight sun)
-  parse/noaa.ts     Kp, Kp forecast, RTSW solar wind + IMF (active-spacecraft selection), G-scale
-  parse/clouds.ts   Open-Meteo, MET Norway, effective cloud, two-source consensus + confidence
-  geo.ts            distance, coordinate snapping, Iceland quick-pick places
+config/           spots.json, cameras.json   (edit without code changes)
+packages/core     Pure TS, no I/O, unit-tested
+  astro.ts          sun/moon/twilight, 24 h night plan (sampling → polar night & midnight sun safe)
+  score.ts          Aurora Score = 100 × activity × sky × dark × moon (documented WEIGHTS), outlook, best window
+  grid.ts           cloud grid + bilinear sampling, night-side polygon (terminator)
+  spots.ts          spot ranking, drive time, light-pollution factor, maps deep links
+  geometry.ts       aurora elevation (Earth curvature), bearing, arc prediction for the AR compass
+  substorm.ts       INTERMAGNET parser, ground "negative bay", substorm nowcast
+  alerts.ts         alert rules, quiet hours, cooldowns (shared by server poller and app)
+  photography.ts    NPF/500 rules, exposure suggestions, naked-eye vs camera expectations
+  parse/*           NOAA (Kp, RTSW, OVATION), Open-Meteo, MET Norway, IMO (CAP, ceilometers), Vegagerðin
 
-apps/server       Hono API proxy
-  lib/sources.ts    registry of every upstream: TTL, stale window, timeout, attribution
-  lib/fetcher.ts    cache + stale-on-error + coalescing + retry/backoff + circuit breaker + health
-  app.ts            routes (portable: Node or Workers)
-  index.ts          Node entry + static PWA hosting
+apps/server       Hono API proxy + background jobs
+  lib/fetcher.ts    TTL cache, stale-on-error, coalescing, retry/backoff, circuit breaker, health, binary images
+  lib/sources.ts    every upstream: TTL, stale window, timeout, attribution
+  routes/extras.ts  map grids, cameras, safety, clear-now, nowcast, sightings, push
+  index.ts          Node entry, VAPID, web-push sender, 5-min poller, static PWA
 
-apps/web          React 19 + Vite + Tailwind 4 + React Query + Zustand + vite-plugin-pwa
+apps/web          React 19 · Vite · Tailwind 4 · Motion · MapLibre · React Query · Zustand · Workbox
+  design/           tokens.css / tokens.ts / glass.css: the design system
+  ui/               Glass, Press, TabBar, Sheet, ScoreRing, StatPill, Sparkline, Controls, Onboarding, PullToRefresh
+  sky/              WebGL aurora shader driven by Kp / Bz / wind speed
+  screens/, sheets/ one idea per screen; detail lives in draggable sheets
+  sw.ts             service worker: precache, API fallback, tile cache, push
 ```
 
 ### API
 
-| Endpoint | Cache | Notes |
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/space-weather` | Kp now, peak and series; solar wind; Bz/Bt (15-min average, 6 h series) |
+| `GET /api/clouds?lat&lon` | Open-Meteo + MET Norway consensus, layers, confidence, 48 h hourly, wind and temperature |
+| `GET /api/aurora?lat&lon` | OVATION overhead and "within view" (~800 km) |
+| `GET /api/score?lat&lon` | Composite score, verdict, limiting factor, outlook, best window |
+| `GET /api/nowcast` | Substorm nowcast, ground magnetometer series, 1-min Kp estimate |
+| `GET /api/grid/clouds` · `/api/grid/ovation` | Map layers (Iceland 117-point cloud grid, OVATION 45–85°N) |
+| `GET /api/spots` · `/api/cameras` · `/api/cameras/:id/image` · `/api/cameras/:id/frames[/:i]` | Config data, camera proxy, timelapse |
+| `GET /api/safety?lat&lon` | IMO warnings (incl. "applies here"), nearby road conditions, wind and road temperature |
+| `GET /api/clear-now?lat&lon` | Nearest IMO ceilometer observation, model cloud, nearest camera |
+| `GET/POST /api/sightings` | Anonymous reports, snapped to ~10 km, expire after 12 h, rate-limited |
+| `GET /api/push/key` · `POST /api/push/subscribe` · `/unsubscribe` · `/test` | Web push |
+| `GET /api/health` | Per-source breaker state, last error, latency, cache hits |
+
+User locations are snapped to ~5 km before anything goes upstream. Sightings are stored at ~10 km. The journal stays on
+the device.
+
+## Design system
+
+`apps/web/src/design/` is the single source of truth: colour (midnight base; emerald, teal, violet and magenta used
+sparingly), glass (blur 32 px, saturate 170 %, 8 % tint plus a live aurora tint, gradient edge highlight, tilt-driven
+sheen, Chromium-only SVG refraction), radius, spacing, shadow and springs (stiffness 300, damping 30). Modes are
+attributes on `<html>`: `data-mode="night"`, `data-transparency="reduced"`, `data-power="low"`. Base styles sit in
+`@layer base` and glass in `@layer components`, so utilities always win.
+
+**Accessibility:** zero axe-core violations (WCAG 2.1 AA + best practice) on Tonight, Map, Cameras, Space, Settings,
+Tools and detail sheets. Targets are 48 px or larger, text on the sky has a scrim, every chart has a text label,
+sheets are keyboard-closable with focus management, and the scrubber is a real slider with arrow keys.
+
+**Performance:** the first load is about 180 KB of JS (gzip). MapLibre (300 KB) and rarely used tools are split into chunks
+and prefetched when the browser is idle. The sky is capped at 60 fps (30 in Low power) and pauses when hidden.
+Animations are transform/opacity only.
+
+## Data sources (verified 2026-11-03)
+
+| Source | Use | Notes |
 | --- | --- | --- |
-| `GET /api/space-weather` | Kp 5 min, forecast 15 min, solar wind 1 min | Kp now / next-24 h peak / series, G-scale, latest speed/density/Bt/Bz, 15-min Bz average, 6 h series (5-min buckets), spacecraft. |
-| `GET /api/clouds?lat=&lon=` | 10–15 min | Coordinates are snapped to 0.05° (~5 km) **before** going upstream. Returns consensus layers, effective %, confidence, 48 h hourly, temperature and wind. |
-| `GET /api/aurora?lat=&lon=` | 5 min | NOAA OVATION at the snapped location: `overhead` and distance-weighted `visible` (aurora up to ~800 km away, low on the horizon). |
-| `GET /api/score?lat=&lon=` | per source | Composite Aurora Score (same pure function as the app), verdict, limiting factor, factors, missing inputs, 18 h outlook and best 2 h window. For widgets, share cards and alerts. |
-| `GET /api/health` | none | Per-source breaker state, last success/error, latency, request and hit counts. UI: `#/health`. |
+| NOAA SWPC | Kp, Kp forecast, 1-min Kp estimate, RTSW solar wind and IMF, OVATION | `products/solar-wind/*` has been **removed (404)**; we use `json/rtsw/*` (active spacecraft, currently SOLAR1) |
+| Open-Meteo | Cloud (low/mid/high), wind, temperature; 117-point Iceland grid; cameras | CC BY 4.0 |
+| MET Norway | Second cloud source (`/complete` has layers) | CC BY 4.0, identifying User-Agent |
+| Icelandic Met Office `api.vedur.is` | CAP warnings; ceilometer cloud observations | No aurora-forecast endpoint, so we link to vedur.is |
+| Vegagerðin `gagnaveita.vegagerdin.is` | Road weather stations; road conditions | Road cameras have no public image API, so we link to umferdin.is |
+| INTERMAGNET (GIN) | Ground magnetometer: Narsarsuaq (DTU), Abisko (SGU) | Leirvogur (Iceland) isn't in the real-time service |
+| OpenFreeMap | Dark vector base map | © OpenMapTiles, © OpenStreetMap contributors |
+| NASA GIBS | VIIRS Black Marble light pollution | |
+| UiT, SGO/Oulu, AuroraMAX (CSA/UCalgary) | Embedded all-sky images, with attribution | Confirm with each operator before commercial use |
+| Live from Iceland (Míla), IRF Kiruna, Lights over Lapland, UAF, FMI | Link-out cameras | |
 
-Every response carries `meta.sources[]` with `ok`, `stale` and `fetchedAt`, so the UI can always show data age and credits.
-If one source fails, the endpoint returns partial data instead of an error. Clouds returns 503 only when *both* sources are down.
+## Known limitations
 
-### Resilience
-
-- **Stale-on-error:** after the TTL expires, the last good value is kept for hours and served (flagged `stale`) if upstream fails.
-- **Circuit breaker:** 4 consecutive failures stop calls to that source for 2 minutes, then one trial request is allowed.
-- **Retries:** network errors, 5xx and 429 are retried with exponential backoff. Other 4xx responses fail fast.
-- **Client:** last successful responses are saved in localStorage and the service worker uses NetworkFirst with a 6 s
-  timeout, so the screen is never blank on a mountain pass. Sun and moon are computed on the device and work fully offline.
-
-## Data sources (verified 2026-11-02)
-
-| Source | Endpoint | Status |
-| --- | --- | --- |
-| NOAA SWPC Kp | `services.swpc.noaa.gov/products/noaa-planetary-k-index.json` | ✅ Format changed to array of objects (legacy format still parsed) |
-| NOAA SWPC Kp forecast | `…/products/noaa-planetary-k-index-forecast.json` | ✅ observed / estimated / predicted |
-| NOAA RTSW plasma | `…/json/rtsw/rtsw_wind_1m.json` | ✅ ACE + IMAP + SOLAR1 mixed; we use the `active` one |
-| NOAA RTSW IMF | `…/json/rtsw/rtsw_mag_1m.json` | ✅ Bz in GSM |
-| ~~NOAA products/solar-wind/*~~ | `…/products/solar-wind/plasma-2-hour.json` etc. | ❌ **404, removed.** Do not use. |
-| NOAA OVATION | `…/json/ovation_aurora_latest.json` | ✅ ~900 KB, 1° grid; parsed once per 5 min server-side |
-| IMO (vedur.is) | `api.vedur.is` (OpenAPI: weather, CAP warnings, …) | ✅ Public API. **No aurora-forecast endpoint** (web page only → we link out). Ceilometer cloud obs (`/weather/observations/aws/raw/cloud/1min/latest`) and CAP warnings planned for "Is it clear?" and the safety layer |
-| Open-Meteo | `api.open-meteo.com/v1/forecast` | ✅ low/mid/high cloud. Occasional 429 from shared IPs, so the cache matters |
-| MET Norway | `api.met.no/weatherapi/locationforecast/2.0/complete` | ✅ low/mid/high in `/complete` only. Needs an identifying User-Agent |
-| Sun & moon | SunCalc, on device | ✅ |
-
-Attribution is shown in the app footer. Open-Meteo and MET Norway data are CC BY 4.0.
-
-## Roadmap
-
-1. ✅ **Foundation:** scaffold, theming, location, astronomy, API proxy
-2. ✅ **Data:** OVATION at your location, Aurora Score (0–100, pure + documented weights + tests), verdict + limiting factor, best window
-   - ✅ **Design overhaul step 1:** design system, liquid glass, tab bar, Tonight hero + live aurora sky, sheets, Settings, Space re-skin
-   - ⏳ Step 2: re-skin Map + Cameras as they're built · Step 3: motion polish (celebration, pull-to-refresh ribbon), onboarding, share card · Step 4: perf + a11y pass on real iOS/Android
-3. **Map:** MapLibre, terminator, OVATION + cloud layers, 48 h time slider
-4. **Cameras:** config-driven camera wall, status, attribution
-5. **Best-spot finder, night planner, roads and safety**
-6. **Alerts and full offline:** web push, thresholds, quiet hours
-7. **Photographer mode, AR compass, sighting log**
-8. **Polish:** i18n (IS/DE/FR/ZH/JA), a11y audit, onboarding, store assets
+- Tested in headless Chromium at iPhone size, not yet on physical iOS Safari or Android Chrome. Headless WebGL is
+  software-rendered, so its frame rates aren't representative.
+- Web-push on iPhone requires adding the app to the Home Screen (iOS 16.4+). iOS doesn't support `navigator.vibrate`, so haptics come with the Capacitor wrapper.
+- Sighting photo upload and "verified by camera" badges aren't built: they need moderated storage.
+- Camera "clear/cloudy" tags are forecasts at the camera, not image analysis.
+- Translations cover all main screens. Long-form explanations (Learn, detail copy) are English for now.
+- `npm audit`: moderate/low advisories remain in build-time Workbox tooling only (nothing that ships).

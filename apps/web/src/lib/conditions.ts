@@ -9,6 +9,7 @@ import {
   sunAltitudeDeg,
   sunState,
   type BestWindow,
+  type HourOutlook,
   type NightPlan,
   type ScoreResult,
   type SunState,
@@ -39,6 +40,7 @@ export interface Conditions {
   /** null until we have at least one live input */
   score: ScoreResult | null;
   best: BestWindow | null;
+  outlook: HourOutlook[];
   sky: SkyParams;
   sw: ReturnType<typeof useSpaceWeather>;
   clouds: ReturnType<typeof useClouds>;
@@ -83,8 +85,8 @@ export function useConditions(): Conditions {
     });
   }, [swd, cd, ad, sun.altitudeDeg, plan.moon.altitudeDeg, plan.moon.illumination]);
 
-  const best = useMemo(() => {
-    if (!cd) return null;
+  const outlook = useMemo(() => {
+    if (!cd) return [] as HourOutlook[];
     const startHour = now.toISOString().slice(0, 13);
     const hours = cd.hourly
       .filter((h) => h.time >= startHour && new Date(h.time).getTime() - now.getTime() <= 18 * 3.6e6)
@@ -93,8 +95,9 @@ export function useConditions(): Conditions {
       const m = moonState(d, location.lat, location.lon);
       return { sunAlt: sunAltitudeDeg(d, location.lat, location.lon), moonAlt: m.altitudeDeg, moonIllumination: m.illumination };
     });
-    return bestWindow(out, 2);
+    return out;
   }, [cd, swd, now, location.lat, location.lon]);
+  const best = useMemo(() => bestWindow(outlook, 2), [outlook]);
 
   const sky = useMemo(
     () =>
@@ -117,6 +120,7 @@ export function useConditions(): Conditions {
     plan,
     score,
     best,
+    outlook,
     sky,
     sw,
     clouds,

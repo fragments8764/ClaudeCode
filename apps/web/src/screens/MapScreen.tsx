@@ -21,6 +21,7 @@ import { Press } from '../ui/Button';
 import { Toggle } from '../ui/Controls';
 import { Glass } from '../ui/Glass';
 import { Sheet } from '../ui/Sheet';
+import { useT } from '../lib/i18n';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/dark';
 const ICELAND: [number, number] = [-18.9, 64.95];
@@ -40,7 +41,7 @@ function hourFloor(d: Date) {
   return Math.floor(d.getTime() / 3.6e6) * 3.6e6;
 }
 
-export default function MapScreen({ c, openCamera }: { c: Conditions; openCamera: (id: string) => void }) {
+export default function MapScreen({ c, openCamera, intent = null, clearIntent }: { c: Conditions; openCamera: (id: string) => void; intent?: 'best' | null; clearIntent?: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const markers = useRef<{ spots: Map<string, Marker>; cams: Marker[]; me: Marker | null }>({ spots: new Map(), cams: [], me: null });
@@ -51,6 +52,7 @@ export default function MapScreen({ c, openCamera }: { c: Conditions; openCamera
   const [picked, setPicked] = useState<RankedSpot | null>(null);
   const { location, mapLayers, set, nightVision, radiusKm } = useSettings();
   const reduced = useReducedMotionPref();
+  const t = useT();
 
   const grid = useCloudGrid();
   const ovg = useOvationGrid();
@@ -277,10 +279,20 @@ export default function MapScreen({ c, openCamera }: { c: Conditions; openCamera
     if (!markers.current.me) {
       const el = document.createElement('div');
       el.className = 'map-me';
+      el.setAttribute('role', 'img');
       el.setAttribute('aria-label', 'Your location');
       markers.current.me = new maplibregl.Marker({ element: el }).setLngLat([location.lon, location.lat]).addTo(m);
     } else markers.current.me.setLngLat([location.lon, location.lat]);
   }, [location.lat, location.lon, ready]);
+
+  // Arriving from the night planner: open "best spot" once the map is ready.
+  useEffect(() => {
+    if (intent !== 'best' || !ready || !spots.data) return;
+    setSheet('best');
+    if (ranked[0]) flyTo(ranked[0].spot.lon, ranked[0].spot.lat, 7.5);
+    clearIntent?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent, ready, spots.data]);
 
   const flyTo = (lon: number, lat: number, zoom = 8.5) => map.current?.flyTo({ center: [lon, lat], zoom, ...(reduced ? { duration: 0 } : { speed: 1.4, curve: 1.5 }), essential: true });
 
@@ -333,7 +345,7 @@ export default function MapScreen({ c, openCamera }: { c: Conditions; openCamera
           className="px-4"
         >
           <Sparkles size={16} strokeWidth={1.5} aria-hidden />
-          <span className="text-[15px] font-medium">Best spot nearby</span>
+          <span className="text-[15px] font-medium">{t('best.spot')}</span>
         </Press>
       </div>
 

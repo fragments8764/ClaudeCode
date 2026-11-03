@@ -95,7 +95,9 @@ export function renderClouds(grid: ValueGrid, ti: number, night: boolean): { url
       const lon = w + ((x + 0.5) / W) * (e - w);
       const v = gridValueAt(grid, ti, lat, lon);
       if (v == null || v < 5) continue;
-      const a = Math.pow(v / 100, 1.6) * 0.42; // translucent mist: the map stays readable under full overcast
+      // feather the outer 12 % so the grid's edge never shows as a hard rectangle
+      const edge = Math.min(x, W - 1 - x, y, H - 1 - y) / (Math.min(W, H) * 0.12);
+      const a = Math.pow(v / 100, 1.6) * 0.42 * Math.min(1, edge); // translucent mist: the map stays readable under full overcast
       img.data.set([col[0]!, col[1]!, col[2]!, Math.round(255 * a)], (y * W + x) * 4);
     }
   }

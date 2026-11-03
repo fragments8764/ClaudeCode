@@ -3,9 +3,11 @@ import type { ReactNode } from 'react';
 import { Freshness } from '../components/Freshness';
 import { spring, STAGGER } from '../design/tokens';
 import type { Conditions } from '../lib/conditions';
+import { useNowcast } from '../lib/api';
 import { bzFactor, kpFactor, levelColor, speedFactor } from '../lib/explain';
 import { hhmm } from '../lib/format';
 import { Glass } from '../ui/Glass';
+import { useT } from '../lib/i18n';
 import { Sparkline } from '../ui/Sparkline';
 
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: spring } };
@@ -57,6 +59,7 @@ function KpBars({ series, now }: { series: { time: string; kp: number; kind: str
 }
 
 export function SpaceScreen({ c }: { c: Conditions }) {
+  const t = useT();
   const d = c.sw.data?.data;
   const kp = kpFactor(d?.kp.now?.kp ?? null);
   const bz = bzFactor(d?.solarWind.latest?.bz ?? null);
@@ -70,11 +73,13 @@ export function SpaceScreen({ c }: { c: Conditions }) {
       variants={{ show: { transition: { staggerChildren: STAGGER } } }}
     >
       <motion.header variants={item} className="mb-4 mt-2">
-        <h1 className="on-sky font-display text-[34px] font-light">Space weather</h1>
+        <h1 className="on-sky font-display text-[34px] font-light">{t('space.title')}</h1>
         <div className="on-sky flex gap-2 text-ink-2">
           <Freshness at={d?.solarWind.latest?.time} stale={stale} warnMin={10} label="Solar wind" />
         </div>
       </motion.header>
+
+      <NowcastCard />
 
       <Metric title="Kp index" value={d?.kp.now ? d.kp.now.kp.toFixed(1) : '—'} tone={levelColor[kp.level]} caption={`${kp.sentence}${d?.kp.max24h ? ` Peak in the next day: Kp ${d.kp.max24h.kp.toFixed(1)} around ${hhmm(d.kp.max24h.time)}.` : ''}`}>
         {d && <KpBars series={d.kp.series} now={c.now} />}
@@ -100,6 +105,35 @@ export function SpaceScreen({ c }: { c: Conditions }) {
         {d?.solarWind.spacecraft ? `Measured by ${d.solarWind.spacecraft} at L1, ~1.5 million km sunward — about 30–60 min before it reaches Earth. ` : ''}
         Data: NOAA Space Weather Prediction Center. Flares, CMEs and the 27-day outlook arrive in a later build.
       </motion.p>
+    </motion.div>
+  );
+}
+
+const LEVEL_TONE = { quiet: 'text-ink-2', loading: 'text-fair', likely: 'text-good', onset: 'text-magenta' } as const;
+
+/** Substorm nowcast + live ground magnetometer: the best "it's kicking off now" signal. */
+function NowcastCard() {
+  const q = useNowcast();
+  const d = q.data?.data;
+  return (
+    <motion.div variants={item}>
+      <Glass radius="xl" className="p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[11px] uppercase tracking-[0.22em] text-ink-3">Substorm nowcast</h2>
+          {d?.kpEstimate && <span className="text-[12px] text-ink-3">1-min Kp est. {d.kpEstimate.kp.toFixed(1)}</span>}
+        </div>
+        <div className={`mt-1 font-display text-[26px] font-light leading-tight ${d ? LEVEL_TONE[d.level] : ''}`}>{d?.headline ?? '…'}</div>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{d?.detail}</p>
+        {d?.ground && d.ground.series.length > 2 && (
+          <div className="mt-3">
+            <Sparkline values={d.ground.series.map((p) => p.x)} color="var(--c-magenta)" label={`Ground magnetometer ${d.ground.name}, last 3 hours`} />
+            <p className="mt-1 text-[12px] text-ink-3">
+              Ground magnetometer, {d.ground.name}: a sharp dip means a substorm is under way. Data ~15 min behind.
+            </p>
+          </div>
+        )}
+        {!d?.ground && d && <p className="mt-2 text-[12px] text-ink-3">Ground magnetometer temporarily unavailable; using solar-wind data only.</p>}
+      </Glass>
     </motion.div>
   );
 }

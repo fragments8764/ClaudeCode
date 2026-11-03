@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { compress } from 'hono/compress';
 import {
   bestWindow,
   bucketAverage,
@@ -217,6 +218,8 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
 
   // ---- routes ----
 
+  // gzip/deflate JSON and static assets (CompressionStream; skipped for images and tiny bodies)
+  app.use('*', compress());
   app.use('/api/*', cors({ origin: corsOrigin, allowMethods: ['GET', 'POST'] }));
   app.use('/api/*', async (c, next) => {
     await next();

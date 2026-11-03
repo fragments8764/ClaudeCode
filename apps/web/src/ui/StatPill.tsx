@@ -21,7 +21,7 @@ export function StatPill({ id, icon: Icon, label, value, tone, onOpen }: { id: s
 /** Header used inside a sheet, sharing the pill's layoutId. */
 export function StatHeader({ id, icon: Icon, label, value, tone }: { id: string; icon: LucideIcon; label: string; value: string; tone?: string }) {
   return (
-    <motion.div layoutId={`stat-${id}`} transition={spring} className="flex items-center gap-3">
+    <motion.div layoutId={`stat-${id}`} transition={spring} className="flex items-center gap-3" role="heading" aria-level={2}>
       <Icon size={22} strokeWidth={1.5} className="text-ink-2" aria-hidden />
       <div className="leading-tight">
         <div className="text-[11px] uppercase tracking-wider text-ink-3">{label}</div>

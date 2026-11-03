@@ -2,8 +2,10 @@
 @import '@fontsource-variable/inter';
 @import './design/tokens.css';
 @import './design/theme.css';
-@import './design/glass.css';
+@import './design/glass.css' layer(components);
 
+/* Base rules live in the base layer so Tailwind utilities (text colour/size on buttons, etc.) always win. */
+@layer base {
 html,
 body,
 #root {
@@ -47,4 +49,6 @@ button {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
 }

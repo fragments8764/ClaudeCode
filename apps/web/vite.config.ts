@@ -10,39 +10,38 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      injectManifest: {
+        // the map chunk + MapLibre worker are large; precache them so the map opens offline
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+      },
       manifest: {
-        name: 'Norðurljós — Aurora Hunter',
+        name: 'Norðurljós: Aurora Hunter',
         short_name: 'Norðurljós',
         description: 'Should I go out and look for the aurora right now, and where?',
         theme_color: BG,
         background_color: BG,
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/#/tonight',
+        categories: ['weather', 'travel', 'photo'],
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' },
         ],
-      },
-      workbox: {
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [
-          {
-            // Live data: try network, fall back to last cached response when offline / slow signal.
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/') && url.pathname !== '/api/health',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api',
-              networkTimeoutSeconds: 6,
-              expiration: { maxEntries: 60, maxAgeSeconds: 24 * 3600 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
+        shortcuts: [
+          { name: 'Tonight', url: '/#/tonight', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+          { name: 'Map', url: '/#/map', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+          { name: 'Cameras', url: '/#/cameras', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+          { name: 'Score widget', url: '/#/widget', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
         ],
       },
     }),

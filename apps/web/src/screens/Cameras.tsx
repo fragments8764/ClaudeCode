@@ -11,6 +11,7 @@ import { useReducedMotionPref, useSettings } from '../lib/store';
 import type { Camera } from '../lib/types';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
+import { useT } from '../lib/i18n';
 
 type Filter = 'all' | 'iceland' | 'allsky' | 'favorites';
 
@@ -156,6 +157,7 @@ export function CameraViewer({ cam, onClose }: { cam: Camera | null; onClose: ()
 
 export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: string | null; setOpenId: (id: string | null) => void; onClearNow: () => void }) {
   const q = useCameras();
+  const t = useT();
   const { location, favorites, set } = useSettings();
   const [filter, setFilter] = useState<Filter>('all');
   const list = useMemo(() => {
@@ -174,11 +176,11 @@ export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: strin
     <div ref={scrollRef} className="mx-auto max-w-xl px-5 pb-[calc(env(safe-area-inset-bottom)+108px)] pt-[max(20px,env(safe-area-inset-top))]">
       <header className="mb-4 mt-2 flex items-end justify-between gap-3">
         <div>
-          <h1 className="on-sky font-display text-[34px] font-light">Cameras</h1>
-          <p className="on-sky text-[13px] text-ink-2">Check the sky before you drive.</p>
+          <h1 className="on-sky font-display text-[34px] font-light">{t('cams.title')}</h1>
+          <p className="on-sky text-[13px] text-ink-2">{t('cams.sub')}</p>
         </div>
         <Press variant="accent" hapticKind="select" onClick={onClearNow} className="shrink-0 px-4 text-[14px] font-medium">
-          <Eye size={16} strokeWidth={1.75} aria-hidden /> Is it clear?
+          <Eye size={16} strokeWidth={1.75} aria-hidden /> {t('clear.q')}
         </Press>
       </header>
 

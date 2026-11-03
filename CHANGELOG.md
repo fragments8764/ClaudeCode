@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.0.0 — All phases complete (2026-11-03)
+
+### Phase 3 — Map
+- MapLibre (lazy-loaded) on a muted OpenFreeMap dark style: OVATION oval as a soft glow, cloud cover as translucent mist
+  cross-fading per hour, darkness terminator (sun < −12°), NASA VIIRS light pollution, glass spot pins that pulse when
+  clear & dark, camera pins, community sightings, your location; glass control cluster; layer sheet.
+- Time scrubber −3 h → +48 h with magnetic hourly snap, haptic ticks, play, keyboard support and a cloud/darkness strip.
+
+### Phase 4 — Cameras
+- Config-driven camera list (`config/cameras.json`, hot-reloaded); server image proxy with status and cache; link-out
+  for live streams and operators that don't allow embedding (no scraping).
+- Two-column glass wall: live-dot status, distance, cloud forecast at the camera, favourites, filters, skeletons;
+  fullscreen viewer with shared-element expand and swipe-down to dismiss; **timelapse** from server-side snapshots.
+- **Is it clear right now?** IMO ceilometer observation (oktas, cloud base) + model + closest camera.
+
+### Phase 5 — Planning & safety
+- Best spot nearby + route list: ranks 25 curated spots (`config/spots.json`) by cloud, darkness, activity and light
+  pollution; drive time; Start driving (Apple/Google Maps); tell-someone; return-time, road-condition, gust and ice warnings.
+- Tonight's plan: best 2-hour window countdown, hour-by-hour forecast score, timeline (sunset, dark, moon, clear spell,
+  Kp peak), night timeline.
+- Safety & roads: IMO CAP warnings (with "applies here"), Vegagerðin road conditions & road-weather stations,
+  call 112, SafeTravel, plan sharing, cold-night checklist; warning chip on Tonight.
+
+### Phase 6 — Alerts & offline
+- Web push end-to-end: VAPID keys (env or auto-generated), subscribe/unsubscribe/test, server poller every 5 min
+  evaluating shared alert rules (score, Kp forecast, Bz south, substorm likely/onset, cloud gap) with quiet hours and
+  cooldowns; expired subscriptions are pruned.
+- Custom service worker (Workbox injectManifest): precache incl. map chunk, network-first API with last-good fallback,
+  cache-first map tiles; "Save Iceland map for offline"; notification tap deep-links into the app.
+- In-app haptic nudge + toast when the score jumps ≥ 15.
+
+### Phase 7 — Field tools
+- Substorm nowcast (Bz south duration/strength + ground magnetometer negative bay) and live INTERMAGNET magnetometer.
+- Photographer mode: ISO/shutter/aperture by brightness and lens, NPF and 500-rule limits, moon-adjusted ISO,
+  long-exposure timer, focus-on-a-star guide, naked-eye vs camera expectations.
+- AR sky compass: camera + heading/pitch; where the oval sits (bearing & elevation with Earth curvature), moon, horizon.
+- I see aurora! (anonymous ~10 km community reports, 12 h expiry) + personal journal, stats and badges, postcard export.
+
+### Design steps 2–4
+- Map and Cameras built on the design system; Tools hub; Learn (offline cheat sheet).
+- Motion: "Go now" celebration (pulse + shimmer + optional chime), aurora-ribbon pull-to-refresh, staggered entrances,
+  shared-element sheets, spring physics throughout, reduced-motion alternatives.
+- Onboarding (3 glass cards, sky brightens as you progress); shareable story card (1080×1920, rendered on device);
+  Ambient mode (Wake Lock, auto-dim); ambient sound pad; `#/widget` view + manifest shortcuts.
+- i18n: EN, IS, DE, FR, 中文, 日本語 for all main chrome.
+- Performance: rarely-used tools code-split and idle-prefetched; first-load JS ~180 KB gzip.
+- Accessibility: axe-core WCAG 2.1 AA — 0 violations across all main screens and sheets (fixed: button utility
+  override via CSS layers, tertiary text contrast, heading order, focusable scroll regions, ARIA on map markers).
+
+### Fixed along the way
+- MapLibre worker not emitted by the bundler → bundled explicitly via `?worker&url`.
+- MapLibre's `position: relative` collapsed the full-bleed map; transformed tab wrapper broke `position: fixed`.
+- Sheets/viewers trapped under the tab bar → portalled to `<body>`.
+- Substorm "loading" state diluted by a 30-min average → uses the continuous south run.
+
+
 ## 0.3.0 — Design overhaul, step 1 (2026-11-02)
 
 ### Added
