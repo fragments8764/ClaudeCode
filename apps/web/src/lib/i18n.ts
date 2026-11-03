@@ -9,6 +9,10 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'tool.outlook': '5-night outlook',
+  'tool.outlook.sub': 'Pick the best night',
+  'tool.gaps': 'Cloud-gap hunter',
+  'tool.gaps.sub': 'Nearest clear sky in reach',
   'plan.active': 'Plan shared · back by {t}',
   'plan.overdue': 'Past your return time · check in',
   'tip.gotit': 'Got it',
@@ -90,6 +94,10 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'tool.outlook': 'Horfur 5 nætur',
+  'tool.outlook.sub': 'Veldu bestu nóttina',
+  'tool.gaps': 'Rofaleit',
+  'tool.gaps.sub': 'Næsti heiði himinn innan seilingar',
   'plan.active': 'Plan deilt · til baka fyrir {t}',
   'plan.overdue': 'Komin(n) fram yfir heimkomutíma · láttu vita',
   'tip.gotit': 'Skilið',
@@ -170,6 +178,10 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'tool.outlook': '5-Nächte-Ausblick',
+  'tool.outlook.sub': 'Die beste Nacht wählen',
+  'tool.gaps': 'Wolkenlücken-Jäger',
+  'tool.gaps.sub': 'Nächster klarer Himmel in Reichweite',
   'plan.active': 'Plan geteilt · zurück bis {t}',
   'plan.overdue': 'Rückkehrzeit überschritten · melde dich',
   'tip.gotit': 'Verstanden',
@@ -250,6 +262,10 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'tool.outlook': 'Prévisions 5 nuits',
+  'tool.outlook.sub': 'Choisir la meilleure nuit',
+  'tool.gaps': 'Chasseur d’éclaircies',
+  'tool.gaps.sub': 'Ciel dégagé le plus proche',
   'plan.active': 'Plan partagé · retour avant {t}',
   'plan.overdue': 'Heure de retour dépassée · confirmez',
   'tip.gotit': 'Compris',
@@ -330,6 +346,10 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'tool.outlook': '5 晚展望',
+  'tool.outlook.sub': '挑选最佳夜晚',
+  'tool.gaps': '云隙猎手',
+  'tool.gaps.sub': '可达范围内最近的晴空',
   'plan.active': '计划已分享 · {t} 前返回',
   'plan.overdue': '已过返回时间 · 请报平安',
   'tip.gotit': '知道了',
@@ -410,6 +430,10 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'tool.outlook': '5夜の見通し',
+  'tool.outlook.sub': 'ベストな夜を選ぶ',
+  'tool.gaps': '雲の切れ間ハンター',
+  'tool.gaps.sub': '行ける範囲で一番近い晴れ間',
   'plan.active': '計画を共有中 · {t} までに帰還',
   'plan.overdue': '帰還予定を過ぎました · 無事を連絡',
   'tip.gotit': '了解',

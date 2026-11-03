@@ -11,6 +11,9 @@ import { FeedbackSheet, recordNight } from './sheets/FeedbackSheet';
 import { HealthSheet } from './sheets/HealthSheet';
 import { PrepareSheet } from './sheets/PrepareSheet';
 import { PlanSheet } from './sheets/PlanSheet';
+import { GapSheet } from './sheets/GapSheet';
+import { OutlookSheet } from './sheets/OutlookSheet';
+import { useCloudGaps } from './lib/gaps';
 import { PlanViewer } from './screens/PlanViewer';
 import { startLiveLocation } from './lib/plan';
 import type { RankedSpot } from '@nordurljos/core';
@@ -104,6 +107,7 @@ export default function App() {
   useEffect(() => startOutbox(), []);
   // opt-in live location for an active shared plan
   useEffect(() => startLiveLocation(), []);
+  const { gaps } = useCloudGaps(c.now);
   const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
   const openPlan = (r?: RankedSpot | null) => {
     const end = c.best?.end ?? c.plan.darkEnd;
@@ -332,6 +336,8 @@ export default function App() {
       <PlanSheet open={!!planFor} onClose={() => setPlanFor(null)} destination={planFor?.dest ?? null} suggestedReturn={planFor?.ret ?? null} />
       <HealthSheet c={c} open={tool === 'health'} onClose={closeTool} />
       <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />
+      <GapSheet gaps={gaps} open={tool === 'gaps'} onClose={closeTool} darkFrom={c.plan.darkStart} darkUntil={c.plan.darkEnd} />
+      <OutlookSheet open={tool === 'outlook'} onClose={closeTool} />
       <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />
       <Suspense fallback={null}>
         {has('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}

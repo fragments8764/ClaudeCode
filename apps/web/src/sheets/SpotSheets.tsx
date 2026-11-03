@@ -1,6 +1,6 @@
 import { mapsLinks, roadTypeWarning, type RankedSpot } from '@nordurljos/core';
 import { motion } from 'motion/react';
-import { Car, Compass, MapPin, ParkingCircle, Share2, ShieldCheck, Sparkles, TriangleAlert, Warehouse } from 'lucide-react';
+import { Car, Compass, MapPin, ParkingCircle, Share2, ShieldCheck, Sparkles, Star, TriangleAlert, Warehouse } from 'lucide-react';
 import { useState } from 'react';
 import { spring } from '../design/tokens';
 import { useRoute, useSafety } from '../lib/api';
@@ -121,6 +121,21 @@ function TripSafety({ r, windowEnd }: { r: RankedSpot; windowEnd: string | null 
   );
 }
 
+function FavStar({ id, name }: { id: string; name: string }) {
+  const { favoriteSpots, set } = useSettings();
+  const on = favoriteSpots.includes(id);
+  return (
+    <button
+      onClick={() => set('favoriteSpots', on ? favoriteSpots.filter((x) => x !== id) : [...favoriteSpots, id])}
+      aria-pressed={on}
+      aria-label={on ? `Remove ${name} from favourite spots` : `Add ${name} to favourite spots`}
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-full"
+    >
+      <Star size={18} strokeWidth={1.75} className={on ? 'fill-[rgb(var(--aurora-rgb))] text-[rgb(var(--aurora-rgb))]' : 'text-ink-2'} aria-hidden />
+    </button>
+  );
+}
+
 function SpotFacts({ r }: { r: RankedSpot }) {
   const s = r.spot;
   const rows = [
@@ -184,10 +199,11 @@ export function SpotSheet({ r, open, onClose, windowEnd, onPlan }: { r: RankedSp
         r && (
           <div className="flex items-center gap-3">
             <MapPin size={22} strokeWidth={1.5} className="text-ink-2" aria-hidden />
-            <div className="min-w-0 leading-tight">
+            <div className="min-w-0 flex-1 leading-tight">
               <div className="text-[11px] uppercase tracking-wider text-ink-3">{r.spot.region}</div>
               <div className="truncate font-display text-2xl font-light">{r.spot.name}</div>
             </div>
+            <FavStar id={r.spot.id} name={r.spot.name} />
           </div>
         )
       }

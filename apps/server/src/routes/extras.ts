@@ -26,6 +26,9 @@ import {
   eveningOf,
   classifyStation,
   routeCorridor,
+  fiveNightOutlook,
+  parse27Day,
+  parseOpenMeteo,
   type AlertPrefsLike,
   type AlertRule,
   type GroundMag,
@@ -54,6 +57,9 @@ export const UP2 = {
     `${openMeteoHost()}/v1/forecast?latitude=${pts.map((p) => p.lat).join(',')}&longitude=${pts.map((p) => p.lon).join(',')}${openMeteoKey()}` +
     '&current=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&timezone=GMT',
   kp1m: 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json',
+  kp27: 'https://services.swpc.noaa.gov/text/27-day-outlook.txt',
+  clouds6: (lat: number, lon: number) =>
+    `${openMeteoHost()}/v1/forecast?latitude=${lat}&longitude=${lon}${openMeteoKey()}&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&forecast_days=6&timezone=GMT`,
   gin: (station: string, day: string) =>
     `https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=json&testObsys=0&observatoryIagaCode=${station}&samplesPerDay=minute&publicationState=adj-or-rep&dataStartDate=${day}T00:00:00Z&dataDuration=1`,
   cap: 'https://api.vedur.is/cap/capbroker/active/detailed/all',
@@ -448,6 +454,33 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     return n;
   }
 
+  // ───────── 5-night outlook ─────────
+  app.get('/api/outlook', async (c) => {
+    const ll = ctx.parseLatLon((k) => c.req.query(k));
+    if (!ll) return c.json({ error: 'lat and lon required' }, 400);
+    const minDark = c.req.query('dark') === 'astro' ? 0.95 : 0.2;
+    const [cl, k27, sw] = await Promise.allSettled([
+      fetcher.get('open-meteo-5day', UP2.clouds6(ll.lat, ll.lon), (raw) => parseOpenMeteo(raw).hourly, `${ll.lat},${ll.lon}`),
+      fetcher.get('noaa-27day', UP2.kp27, (raw) => parse27Day(String(raw)), 'kp27', 'text'),
+      ctx.spaceWeather(),
+    ]);
+    const hourly = val(cl);
+    const sources = [ctx.meta('open-meteo-5day', cl), ctx.meta('noaa-27day', k27), ...(sw.status === 'fulfilled' ? sw.value.sources : [])];
+    if (!hourly) return c.json({ error: 'cloud forecast unavailable', meta: { generatedAt: now().toISOString(), sources } }, 503);
+    const nights = fiveNightOutlook({
+      lat: ll.lat,
+      lon: ll.lon,
+      now: now(),
+      hourly,
+      kp3day: sw.status === 'fulfilled' ? sw.value.data.kp.series : [],
+      kp27: val(k27) ?? [],
+      weights: config.weights().weights,
+      minDark,
+    });
+    c.header('Cache-Control', 'public, max-age=900');
+    return c.json({ data: { location: ll, nights }, meta: { generatedAt: now().toISOString(), sources } });
+  });
+
   // ───────── "Is it clear right now?" ─────────
   app.get('/api/clear-now', async (c) => {
     const ll = ctx.parseLatLon((k) => c.req.query(k));
@@ -652,6 +685,7 @@ export function registerExtras(app: Hono, ctx: Ctx) {
       quietStart: HHMM.test(p.quietStart) ? p.quietStart : '02:00',
       quietEnd: HHMM.test(p.quietEnd) ? p.quietEnd : '07:00',
       tz: typeof p.tz === 'string' && p.tz.length < 64 ? p.tz : 'Atlantic/Reykjavik',
+      minDark: p.minDark === 'astro' ? 0.95 : 0.6,
     };
     const sub: PushSub = {
       endpoint,

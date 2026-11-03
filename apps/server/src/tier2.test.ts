@@ -68,7 +68,7 @@ describe('trip plans', () => {
     expect((await post(app, '/api/plans', { ...plan, destination: { lat: 999 } })).status).toBe(400);
   });
   it('overdue → status overdue and one "are you back safe?" push to the owner', async () => {
-    const sendPush = vi.fn(async () => ({ gone: false }));
+    const sendPush = vi.fn(async (..._args: unknown[]) => ({ gone: false }));
     const app = makeApp({ sendPush, vapid: { publicKey: 'P', privateKey: 'K', subject: 'x' } });
     const endpoint = 'https://push.example/owner';
     await post(app, '/api/push/subscribe', { subscription: { endpoint, keys: { p256dh: 'a', auth: 'b' } }, lat: 64.15, lon: -21.95 });
@@ -79,5 +79,26 @@ describe('trip plans', () => {
     expect(await app.services.checkPlans()).toBe(0); // only once
     expect(sendPush.mock.calls[0]![1]).toMatchObject({ title: 'Are you back safe?' });
     NOW = new Date('2026-11-02T21:30:00Z');
+  });
+});
+
+describe('5-night outlook endpoint', () => {
+  it('combines 6-day clouds, NOAA 3-day and 27-day Kp', async () => {
+    const routes: Record<string, string> = {
+      'https://api.open-meteo.com/': JSON.stringify(fx('open-meteo-6day.json')),
+      [UP2.kp27]: readFileSync(new URL('../../../packages/core/src/__tests__/fixtures/noaa-27day.txt', import.meta.url), 'utf8'),
+      'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json': JSON.stringify(fx('noaa-kp-forecast.json')),
+    };
+    const fetch = async (input: RequestInfo | URL) => {
+      const key = Object.keys(routes).find((k) => String(input).startsWith(k));
+      return key ? new Response(routes[key], { status: 200 }) : new Response('down', { status: 503 });
+    };
+    const fetcher = new Fetcher(SOURCES, { fetch: fetch as typeof globalThis.fetch, retries: 0, sleep: async () => {} });
+    const app = createApp({ fetcher, now: () => new Date('2026-11-02T13:00:00Z'), inlineConfig: { spots: [], cameras: [] } });
+    const b = await (await app.request('/api/outlook?lat=64.15&lon=-21.95')).json();
+    expect(b.data.nights).toHaveLength(5);
+    expect(b.data.nights.map((n: { date: string }) => n.date)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']);
+    expect(b.data.nights.some((n: { kpSource: string }) => n.kpSource === '27-day')).toBe(true);
+    expect((await app.request('/api/outlook')).status).toBe(400);
   });
 });

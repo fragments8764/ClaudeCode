@@ -1,14 +1,16 @@
 import { motion } from 'motion/react';
-import { Activity, Aperture, BookOpen, CalendarClock, CloudDownload, Compass, GraduationCap, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
+import { Activity, Aperture, BookOpen, CalendarClock, CalendarDays, CloudDownload, CloudSun, Compass, GraduationCap, Monitor, Share2, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react';
 import { spring, STAGGER } from '../design/tokens';
 import { useT } from '../lib/i18n';
 import { Sheet } from '../ui/Sheet';
 
-export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn' | 'health' | 'prepare';
+export type ToolId = 'sighting' | 'planner' | 'safety' | 'photo' | 'ar' | 'journal' | 'share' | 'ambient' | 'learn' | 'health' | 'prepare' | 'outlook' | 'gaps';
 
 const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?: boolean }[] = [
   { id: 'sighting', icon: Sparkles, title: 'tool.sighting', sub: 'tool.sighting.sub', accent: true },
   { id: 'planner', icon: CalendarClock, title: 'tool.planner', sub: 'tool.planner.sub' },
+  { id: 'gaps', icon: CloudSun, title: 'tool.gaps', sub: 'tool.gaps.sub' },
+  { id: 'outlook', icon: CalendarDays, title: 'tool.outlook', sub: 'tool.outlook.sub' },
   { id: 'safety', icon: ShieldAlert, title: 'tool.safety', sub: 'tool.safety.sub' },
   { id: 'photo', icon: Aperture, title: 'tool.photo', sub: 'tool.photo.sub' },
   { id: 'ar', icon: Compass, title: 'tool.ar', sub: 'tool.ar.sub' },

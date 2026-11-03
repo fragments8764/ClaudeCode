@@ -19,6 +19,7 @@ export type Language = 'en' | 'is' | 'de' | 'fr' | 'zh' | 'ja';
 
 export interface AlertPrefs {
   enabled: boolean;
+  minDark?: 'nautical' | 'astro';
   minScore: number;
   minKp: number;
   bzSouth: boolean;
@@ -62,6 +63,11 @@ export interface Prefs {
   radiusKm: number;
   favorites: string[];
   onboarded: boolean;
+  /** personalisation (stays on this device) */
+  maxDriveMin: number;
+  minDarkness: 'nautical' | 'astronomical';
+  hasCamera: boolean;
+  favoriteSpots: string[];
   /** offline field mode: radius of the pinned region around your location */
   pinnedRadiusKm: number;
   lastPrepared: { at: string; label: string; radiusKm: number } | null;
@@ -92,6 +98,10 @@ export const DEFAULT_PREFS: Prefs = {
   radiusKm: 120,
   favorites: [],
   onboarded: false,
+  maxDriveMin: 120,
+  minDarkness: 'nautical',
+  hasCamera: true,
+  favoriteSpots: [],
   pinnedRadiusKm: 150,
   lastPrepared: null,
   lens: { focalMm: 14, aperture: 2.8, crop: 1, phone: false },

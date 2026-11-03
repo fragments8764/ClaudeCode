@@ -16,3 +16,5 @@ export * from './photography';
 export * from './parse/iceland';
 export * from './validation';
 export * from './corridor';
+export * from './gaps';
+export * from './outlook';

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
-import { resolveWeights, type Corridor, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
+import { resolveWeights, type Corridor, type NightOutlook, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
@@ -127,4 +127,13 @@ export function useRoute(from: { lat: number; lon: number }, to: { lat: number; 
   const f = `${snap(from.lat)},${snap(from.lon)}`;
   const t = to ? `${to.lat.toFixed(3)},${to.lon.toFixed(3)}` : '';
   return usePersistedQuery<Envelope<Corridor>>(`route:${f}:${t}`, `/api/route?fromLat=${snap(from.lat)}&fromLon=${snap(from.lon)}&toLat=${to?.lat}&toLon=${to?.lon}`, 10 * 60_000, !!to);
+}
+
+export function useOutlook(lat: number, lon: number, astro: boolean, enabled = true) {
+  return usePersistedQuery<Envelope<{ location: { lat: number; lon: number }; nights: NightOutlook[] }>>(
+    `outlook:${snap(lat)},${snap(lon)}:${astro ? 'a' : 'n'}`,
+    `/api/outlook?lat=${snap(lat)}&lon=${snap(lon)}${astro ? '&dark=astro' : ''}`,
+    30 * 60_000,
+    enabled,
+  );
 }

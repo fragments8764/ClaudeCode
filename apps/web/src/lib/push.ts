@@ -46,7 +46,7 @@ export async function syncPush(sub?: PushSubscription | null) {
     lat: st.location.lat,
     lon: st.location.lon,
     label: st.location.label,
-    prefs: { ...st.alerts, tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    prefs: { ...st.alerts, minDark: st.minDarkness === 'astronomical' ? 'astro' : 'nautical', tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
   });
 }
 

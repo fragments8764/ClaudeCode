@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
-import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, Lightbulb, LayoutGrid, MapPin, MessageCircleQuestion, Moon, ShieldCheck, SlidersHorizontal, TriangleAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, Lightbulb, LayoutGrid, MapPin, MessageCircleQuestion, Moon, ShieldCheck, SlidersHorizontal, TriangleAlert, CloudSun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { spring, STAGGER } from '../design/tokens';
 import { Freshness } from '../components/Freshness';
@@ -16,6 +16,7 @@ import { pendingFeedback } from '../sheets/FeedbackSheet';
 import { ageText, staleSources } from '../lib/staleness';
 import { useActivePlan } from '../sheets/PlanSheet';
 import { contextualTip, dismissTip } from '../lib/tips';
+import { useCloudGaps } from '../lib/gaps';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
 import { PullToRefresh } from '../ui/PullToRefresh';
@@ -29,7 +30,7 @@ const item = {
   show: { opacity: 1, y: 0, transition: spring },
 };
 
-export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety' | 'health') => void; onFeedback: (night: string) => void; online: boolean; onPlan: () => void }) {
+export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety' | 'health' | 'gaps') => void; onFeedback: (night: string) => void; online: boolean; onPlan: () => void }) {
   const t = useT();
   const qc = useQueryClient();
   const location = useSettings((s) => s.location);
@@ -65,6 +66,9 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
   const oldest = metas.map((m) => m.fetchedAt).filter((x): x is string => !!x).sort()[0];
   const feedback = pendingFeedback(c.now);
   const plan = useActivePlan();
+  const { gaps } = useCloudGaps(c.now);
+  const localCloudy = (DEMO?.cloud ?? cd?.effective ?? 0) > 40;
+  const gap = localCloudy && !c.plan.noDarkness ? gaps[0] : undefined;
   const planOverdue = plan && c.now.getTime() > new Date(plan.returnBy).getTime();
   const [tipTick, setTipTick] = useState(0);
   const w = c.clouds.data?.data.weather;
@@ -178,6 +182,19 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
             onOpen={() => open('moon')}
           />
         </motion.div>
+
+        {/* Cloud-gap hunter: cloudy here, but clear sky within reach */}
+        {gap && (
+          <motion.div variants={item} className="mt-3">
+            <Glass radius="xl" className="overflow-hidden">
+              <button onClick={() => (haptic('tap'), openTool('gaps'))} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                <CloudSun size={18} strokeWidth={1.5} className="shrink-0 text-good" aria-hidden />
+                <span className="min-w-0 flex-1 text-[14px] leading-snug">{gap.summary}</span>
+                <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+              </button>
+            </Glass>
+          </motion.div>
+        )}
 
         {/* Best window → night planner (Go-now countdown) */}
         {best && (

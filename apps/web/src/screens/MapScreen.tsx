@@ -52,7 +52,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
   const [offset, setOffset] = useState(0);
   const [sheet, setSheet] = useState<'layers' | 'best' | 'spot' | null>(null);
   const [picked, setPicked] = useState<RankedSpot | null>(null);
-  const { location, mapLayers, set, nightVision, radiusKm } = useSettings();
+  const { location, mapLayers, set, nightVision, radiusKm, maxDriveMin, favoriteSpots } = useSettings();
   const reduced = useReducedMotionPref();
   const t = useT();
 
@@ -92,8 +92,10 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
       speed: offset === 0 ? (sw?.solarWind.latest?.speed ?? null) : null,
       maxKm: radiusKm,
       weights,
+      maxDriveMin,
+      favorites: favoriteSpots,
     });
-  }, [spots.data, c.sw.data, location, at, g, ti, offset, ovVisible, radiusKm, weights]);
+  }, [spots.data, c.sw.data, location, at, g, ti, offset, ovVisible, radiusKm, weights, maxDriveMin, favoriteSpots]);
 
   // Marker listeners are created once; route clicks through a ref to the latest ranking.
   const pickRef = useRef<(id: string) => void>(() => {});

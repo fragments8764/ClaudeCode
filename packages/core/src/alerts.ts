@@ -13,6 +13,8 @@ export interface AlertPrefsLike {
   quietEnd: string;
   /** IANA tz, e.g. "Atlantic/Reykjavik" */
   tz?: string;
+  /** personalisation: darkness factor required (0.6 ≈ nautical, 0.95 ≈ astronomical) */
+  minDark?: number;
 }
 
 export interface AlertState {
@@ -78,7 +80,7 @@ export function evaluateAlerts(state: AlertState, prefs: AlertPrefsLike, lastSen
   };
   const out: AlertMessage[] = [];
   const at = state.placeLabel;
-  const dark = state.dark >= 0.6;
+  const dark = state.dark >= (prefs.minDark ?? 0.6);
   const clearish = state.cloud === null || state.cloud <= 50;
 
   if (state.nowcast === 'onset' && dark && clearish && cooled('substorm') && (!quiet || state.score >= 50)) {

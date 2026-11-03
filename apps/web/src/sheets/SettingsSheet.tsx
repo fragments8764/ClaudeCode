@@ -61,6 +61,28 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
         <Toggle label="Low power" hint="Calmer sky at 30 fps, lighter glass — saves battery in the cold" checked={s.lowPower} onChange={(v) => s.set('lowPower', v)} />
       </Section>
 
+      <Section title="Your preferences">
+        <Segmented
+          label="Longest drive I'll make"
+          value={String(s.maxDriveMin)}
+          options={[30, 60, 120, 180].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${m / 60} h` }))}
+          onChange={(v) => s.set('maxDriveMin', Number(v))}
+        />
+        <Segmented
+          label="How dark it must be"
+          value={s.minDarkness}
+          options={[
+            { value: 'nautical', label: 'Dark enough' },
+            { value: 'astronomical', label: 'Fully dark' },
+          ]}
+          onChange={(v) => s.set('minDarkness', v)}
+        />
+        <Toggle label="I'm bringing a camera" hint="Adds tripod & batteries to the checklist and keeps Photographer mode handy" checked={s.hasCamera} onChange={(v) => s.set('hasCamera', v)} />
+        <p className="pb-2 text-[12px] text-ink-3">
+          {s.favoriteSpots.length} favourite spot{s.favoriteSpots.length === 1 ? '' : 's'} (star them on the map). Used to rank spots, find cloud gaps and tune alerts, and stored only on this device.
+        </p>
+      </Section>
+
       <Section title="Feedback">
         <Toggle label="Haptics" hint="Subtle taps on key actions (Android; iOS in the app version)" checked={s.haptics} onChange={(v) => s.set('haptics', v)} />
         <Toggle label="Ambient sound" hint="A very soft pad that swells with aurora strength" checked={s.sound} onChange={(v) => s.set('sound', v)} />
