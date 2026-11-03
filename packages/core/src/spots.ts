@@ -18,6 +18,8 @@ export interface Spot extends LatLon {
   notes: string;
   /** Seasonal / F-road / 4x4 caveats. */
   access?: string;
+  /** Access road surface, for rental-car warnings. */
+  roadType?: 'paved' | 'gravel' | 'f-road';
 }
 
 /** Penalty for artificial light: Bortle 1–2 → 1.0, 4 → 0.85, 6 → 0.65, 8+ → 0.45. */

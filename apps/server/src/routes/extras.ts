@@ -24,6 +24,8 @@ import {
   darknessFactor,
   calibration,
   eveningOf,
+  classifyStation,
+  routeCorridor,
   type AlertPrefsLike,
   type AlertRule,
   type GroundMag,
@@ -78,6 +80,21 @@ export interface PushSub {
 }
 
 /** Anonymised score log for validation (location rounded to ~10 km, no identifiers). */
+/** Shared trip plan ("tell someone"): public by unguessable id, writable only with the secret. */
+export interface TripPlan {
+  id: string;
+  secret: string;
+  name: string;
+  destination: { name: string; lat: number; lon: number };
+  returnBy: string;
+  createdAt: string;
+  shareLocation: boolean;
+  lastLocation: { lat: number; lon: number; at: string } | null;
+  checkedInAt: string | null;
+  pushEndpoint: string | null;
+  overdueNotified: boolean;
+}
+
 export interface ScoreLogEntry {
   at: string;
   lat: number;
@@ -153,6 +170,8 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   const scoreLog = new JsonStore<ScoreLogEntry[]>(ctx.dataDir, 'score-log', []);
   const outcomes = new JsonStore<OutcomeEntry[]>(ctx.dataDir, 'outcomes', []);
   const lastLogged = new Map<string, number>();
+  const plans = new JsonStore<TripPlan[]>(ctx.dataDir, 'plans', []);
+  const rid = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
 
   /** Log a computed score (deduplicated per ~10 km cell per 15 min). */
   function logScore(e: Omit<ScoreLogEntry, 'lat' | 'lon'> & { lat: number; lon: number }) {
@@ -292,6 +311,142 @@ export function registerExtras(app: Hono, ctx: Ctx) {
       meta: { generatedAt: now().toISOString(), sources: [ctx.meta('imo-cap', cap), ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc)] },
     });
   });
+
+  // ───────── Roads & warnings for the map + route corridor ─────────
+  const roadData = () =>
+    Promise.allSettled([fetcher.get('vg-weather', UP2.roadWeather, parseRoadStations), fetcher.get('vg-roads', UP2.roadCond, parseRoadConditions)]);
+
+  app.get('/api/roads', async (c) => {
+    const [st, rc] = await roadData();
+    const stations = val(st) ?? [];
+    const conds = val(rc) ?? [];
+    const bySeg = new Map(conds.map((x) => [x.segmentId, x]));
+    const data = stations.map((s) => {
+      const cs = s.segmentIds.map((id) => bySeg.get(id)).filter((x): x is NonNullable<typeof x> => !!x);
+      return { name: s.name, lat: s.lat, lon: s.lon, gustMs: s.gustMs, windMs: s.windMs, roadC: s.roadC, airC: s.airC, time: s.time, kind: classifyStation(s, cs), condition: cs.find((x) => x.severity !== 'ok')?.condition ?? cs[0]?.condition ?? null };
+    });
+    c.header('Cache-Control', 'public, max-age=300');
+    return c.json({ data, meta: { generatedAt: now().toISOString(), sources: [ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc)] } });
+  });
+
+  app.get('/api/route', async (c) => {
+    const from = ctx.parseLatLon((k) => c.req.query(k === 'lat' ? 'fromLat' : 'fromLon'));
+    const to = ctx.parseLatLon((k) => c.req.query(k === 'lat' ? 'toLat' : 'toLon'));
+    if (!from || !to) return c.json({ error: 'fromLat, fromLon, toLat, toLon required' }, 400);
+    const [st, rc] = await roadData();
+    const corridor = routeCorridor(from, to, val(st) ?? [], val(rc) ?? [], 15);
+    return c.json({ data: corridor, meta: { generatedAt: now().toISOString(), sources: [ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc)] } });
+  });
+
+  app.get('/api/warnings', async (c) => {
+    const [cap] = await Promise.allSettled([fetcher.get('imo-cap', UP2.cap, parseCapWarnings)]);
+    return c.json({ data: val(cap) ?? [], meta: { generatedAt: now().toISOString(), sources: [ctx.meta('imo-cap', cap)] } });
+  });
+
+  // ───────── Shared trip plans: destination, return time, opt-in live location, check-in ─────────
+  const prunePlans = () => {
+    const cutoff = now().getTime() - 36 * 3.6e6;
+    plans.update((all) => all.filter((p) => new Date(p.returnBy).getTime() >= cutoff));
+  };
+  const publicPlan = (p: TripPlan) => {
+    const overdue = !p.checkedInAt && now().getTime() > new Date(p.returnBy).getTime();
+    return { id: p.id, name: p.name, destination: p.destination, returnBy: p.returnBy, createdAt: p.createdAt, shareLocation: p.shareLocation, lastLocation: p.shareLocation ? p.lastLocation : null, checkedInAt: p.checkedInAt, status: p.checkedInAt ? 'safe' : overdue ? 'overdue' : 'out' };
+  };
+  const findPlan = (id: string) => plans.get().find((p) => p.id === id);
+
+  app.post('/api/plans', async (c) => {
+    if (!writeLimit.allow(`pl:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 4096);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const d = b?.destination ?? {};
+    const lat = Number(d.lat);
+    const lon = Number(d.lon);
+    const ret = Date.parse(b?.returnBy);
+    if (!isValidLatLon(lat, lon) || !Number.isFinite(ret) || ret < now().getTime() - 3.6e6 || ret > now().getTime() + 48 * 3.6e6) {
+      return c.json({ error: 'destination (lat, lon) and returnBy within 48 h required' }, 400);
+    }
+    prunePlans();
+    const p: TripPlan = {
+      id: rid(9),
+      secret: rid(16),
+      name: typeof b.name === 'string' ? b.name.slice(0, 40) : '',
+      destination: { name: typeof d.name === 'string' ? d.name.slice(0, 80) : 'Destination', lat, lon },
+      returnBy: new Date(ret).toISOString(),
+      createdAt: now().toISOString(),
+      shareLocation: b.shareLocation === true,
+      lastLocation: null,
+      checkedInAt: null,
+      pushEndpoint: typeof b.pushEndpoint === 'string' && b.pushEndpoint.length < 1000 ? b.pushEndpoint : null,
+      overdueNotified: false,
+    };
+    plans.update((all) => [...all, p].slice(-5000));
+    return c.json({ data: { id: p.id, secret: p.secret, plan: publicPlan(p) } }, 201);
+  });
+
+  app.get('/api/plans/:id', (c) => {
+    const p = findPlan(c.req.param('id'));
+    c.header('Cache-Control', 'no-store');
+    return p ? c.json({ data: publicPlan(p) }) : c.json({ error: 'not found' }, 404);
+  });
+
+  const withSecret = async (c: any, fn: (p: TripPlan, b: any) => void) => {
+    let b: any;
+    try {
+      b = await readJson(c, 1024);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const p = findPlan(c.req.param('id'));
+    if (!p || b?.secret !== p.secret) return c.json({ error: 'not found' }, 404);
+    fn(p, b);
+    plans.set([...plans.get()]);
+    return c.json({ data: publicPlan(p) });
+  };
+
+  app.post('/api/plans/:id/location', (c) => {
+    if (!writeLimit.allow(`plloc:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    return withSecret(c, (p, b) => {
+      if (p.shareLocation && isValidLatLon(Number(b.lat), Number(b.lon))) p.lastLocation = { lat: Number(Number(b.lat).toFixed(4)), lon: Number(Number(b.lon).toFixed(4)), at: now().toISOString() };
+    });
+  });
+  app.post('/api/plans/:id/checkin', (c) => withSecret(c, (p) => (p.checkedInAt = now().toISOString())));
+  app.post('/api/plans/:id/delete', async (c) => {
+    let b: any;
+    try {
+      b = await readJson(c, 1024);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const p = findPlan(c.req.param('id'));
+    if (!p || b?.secret !== p.secret) return c.json({ error: 'not found' }, 404);
+    plans.update((all) => all.filter((x) => x.id !== p.id));
+    return c.json({ data: { ok: true } });
+  });
+
+  /** Overdue plans: one "Are you back safe?" push to the owner, 15 min after their return time. */
+  async function checkPlans(): Promise<number> {
+    if (!ctx.sendPush) return 0;
+    let n = 0;
+    for (const p of plans.get()) {
+      if (p.checkedInAt || p.overdueNotified || !p.pushEndpoint) continue;
+      if (now().getTime() < new Date(p.returnBy).getTime() + 15 * 60_000) continue;
+      const sub = subs.get().find((x) => x.endpoint === p.pushEndpoint);
+      p.overdueNotified = true;
+      if (!sub) continue;
+      try {
+        await ctx.sendPush(sub, { title: 'Are you back safe?', body: `You planned to be back from ${p.destination.name} by now. Tap to check in.`, url: `/#/plan/${p.id}?checkin=1`, tag: `plan-${p.id}` });
+        n++;
+      } catch {
+        /* ignore */
+      }
+    }
+    plans.set([...plans.get()]);
+    return n;
+  }
 
   // ───────── "Is it clear right now?" ─────────
   app.get('/api/clear-now', async (c) => {
@@ -541,6 +696,7 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   /** Evaluate alert rules for every subscriber; sends pushes. Returns number sent. */
   async function runAlerts(): Promise<number> {
     if (!ctx.sendPush) return 0;
+    await checkPlans().catch(() => 0);
     const all = subs.get();
     if (!all.length) return 0;
     const t = now();
@@ -601,8 +757,9 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     captureFrames,
     runAlerts,
     logScore,
-    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush()),
-    stores: { subs, sightings, scoreLog, outcomes },
+    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush(), plans.flush()),
+    checkPlans,
+    stores: { subs, sightings, scoreLog, outcomes, plans },
     frames,
   };
 }

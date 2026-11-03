@@ -43,6 +43,7 @@ export interface MapLayers {
   spots: boolean;
   cams: boolean;
   sightings: boolean;
+  roads: boolean;
 }
 
 export interface Prefs {
@@ -87,7 +88,7 @@ export const DEFAULT_PREFS: Prefs = {
   units: 'metric',
   language: 'en',
   alerts: { enabled: false, minScore: 50, minKp: 4, bzSouth: true, quietStart: '02:00', quietEnd: '07:00' },
-  mapLayers: { aurora: true, clouds: true, night: true, light: false, spots: true, cams: true, sightings: true },
+  mapLayers: { aurora: true, clouds: true, night: true, light: false, spots: true, cams: true, sightings: true, roads: true },
   radiusKm: 120,
   favorites: [],
   onboarded: false,
@@ -108,7 +109,7 @@ export const useSettings = create<Settings>()(
     }),
     {
       name: 'nordurljos-settings',
-      version: 3,
+      version: 4,
       migrate: (old, version) => {
         const o = (old ?? {}) as Record<string, unknown>;
         if (version < 2) {
@@ -116,8 +117,10 @@ export const useSettings = create<Settings>()(
           const { theme, ...rest } = o;
           return { ...DEFAULT_PREFS, ...rest, nightVision: theme === 'red' } as unknown as Settings;
         }
-        // v3 added map layers, favorites, onboarding, lens — fill defaults
-        return { ...DEFAULT_PREFS, ...o } as unknown as Settings;
+        // v3+ added map layers, favorites, onboarding, lens, …: fill defaults (incl. new map layers)
+        const merged = { ...DEFAULT_PREFS, ...o } as unknown as Settings;
+        merged.mapLayers = { ...DEFAULT_PREFS.mapLayers, ...((o.mapLayers as object) ?? {}) };
+        return merged;
       },
     },
   ),

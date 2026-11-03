@@ -7,6 +7,7 @@ import { hhmm, temp, wind } from '../lib/format';
 import { shareText } from '../lib/share';
 import { useSettings } from '../lib/store';
 import { Press } from '../ui/Button';
+import { TIPS } from '../lib/tips';
 import { Sheet } from '../ui/Sheet';
 import { StatHeader } from '../ui/StatPill';
 
@@ -23,7 +24,7 @@ export function useSafetySummary() {
 }
 
 /** Safety layer: IMO warnings, nearby road conditions & wind, emergency links, plan sharing, cold tips. */
-export function SafetySheet({ c, open, onClose }: { c: Conditions; open: boolean; onClose: () => void }) {
+export function SafetySheet({ c, open, onClose, onPlan }: { c: Conditions; open: boolean; onClose: () => void; onPlan?: () => void }) {
   const { location, units } = useSettings();
   const { q, d, warnings, gust } = useSafetySummary();
   const [shared, setShared] = useState('');
@@ -89,8 +90,8 @@ export function SafetySheet({ c, open, onClose }: { c: Conditions; open: boolean
             <Phone size={16} strokeWidth={1.75} aria-hidden /> Call 112
           </Press>
         </a>
-        <Press className="h-14 w-full text-[15px]" onClick={plan}>
-          <Share2 size={16} strokeWidth={1.75} aria-hidden /> Tell someone
+        <Press className="h-14 w-full text-[15px]" onClick={onPlan ?? plan}>
+          <Share2 size={16} strokeWidth={1.75} aria-hidden /> Share my plan
         </Press>
         <a href="https://safetravel.is/" target="_blank" rel="noreferrer">
           <Press className="h-12 w-full text-[14px]" tabIndex={-1}>SafeTravel.is</Press>
@@ -101,6 +102,15 @@ export function SafetySheet({ c, open, onClose }: { c: Conditions; open: boolean
       </div>
       {shared && <p className="mt-2 text-[13px] text-good" role="status">{shared}</p>}
 
+      <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Driving & cold tips</h3>
+      <ul className="space-y-3 pb-2 text-[14px] leading-snug">
+        {TIPS.map((tp) => (
+          <li key={tp.id}>
+            <div className="font-medium">{tp.title}</div>
+            <div className="text-ink-2">{tp.body}</div>
+          </li>
+        ))}
+      </ul>
       <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Cold-night checklist</h3>
       <ul className="space-y-2 pb-8 text-[14px] leading-snug text-ink-2">
         <li className="flex gap-2"><BatteryCharging size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />Cold drains batteries fast: keep your phone and spares in an inside pocket, and bring a power bank.</li>

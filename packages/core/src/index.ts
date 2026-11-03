@@ -15,3 +15,4 @@ export * from './alerts';
 export * from './photography';
 export * from './parse/iceland';
 export * from './validation';
+export * from './corridor';

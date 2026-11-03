@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera as CamIcon, Layers, LocateFixed, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { spring } from '../design/tokens';
-import { useCameras, useCloudGrid, useOvationGrid, useSightings, useSpots, useWeights } from '../lib/api';
+import { useCameras, useCloudGrid, useOvationGrid, useRoads, useRoute, useSightings, useSpots, useWarnings, useWeights } from '../lib/api';
 import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { useReducedMotionPref, useSettings, type MapLayers } from '../lib/store';
@@ -35,13 +35,15 @@ const LAYER_LABELS: Record<keyof MapLayers, [string, string]> = {
   spots: ['Dark-sky spots', 'Curated, with parking notes'],
   cams: ['Webcams', 'Live cameras across Iceland'],
   sightings: ['Sightings', 'Community reports, last 6 h'],
+  roads: ['Roads & warnings', 'Vegagerðin conditions, gusts, IMO warnings'],
 };
+const ROAD_COLORS = ['match', ['get', 'kind'], 'clear', '#4ade80', 'slippery', '#facc15', 'wind', '#a78bfa', 'closed', '#fb7185', '#64748b'] as unknown as string;
 
 function hourFloor(d: Date) {
   return Math.floor(d.getTime() / 3.6e6) * 3.6e6;
 }
 
-export default function MapScreen({ c, openCamera, intent = null, clearIntent }: { c: Conditions; openCamera: (id: string) => void; intent?: 'best' | null; clearIntent?: () => void }) {
+export default function MapScreen({ c, openCamera, intent = null, clearIntent, onPlan }: { c: Conditions; openCamera: (id: string) => void; intent?: 'best' | null; clearIntent?: () => void; onPlan?: (r: RankedSpot) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const markers = useRef<{ spots: Map<string, Marker>; cams: Marker[]; me: Marker | null }>({ spots: new Map(), cams: [], me: null });
@@ -60,6 +62,8 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
   const cams = useCameras();
   const sightings = useSightings();
   const { weights } = useWeights();
+  const roads = useRoads(mapLayers.roads);
+  const warnings = useWarnings();
 
   const g = grid.data?.data ?? null;
   const at = useMemo(() => new Date(hourFloor(c.now) + offset * 3.6e6), [c.now, offset]);
@@ -139,6 +143,14 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
         m.addSource(`clouds-${k}`, { type: 'image', url: empty.url, coordinates: empty.coords });
         m.addLayer({ id: `clouds-${k}`, type: 'raster', source: `clouds-${k}`, paint: { 'raster-opacity': 0, 'raster-opacity-transition': { duration: reduced ? 0 : 450 }, 'raster-fade-duration': 0 } }, firstSymbol);
       }
+      m.addSource('warnings', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'warnings', type: 'fill', source: 'warnings', paint: { 'fill-color': ['match', ['get', 'severity'], 'Severe', '#fb7185', 'Extreme', '#fb7185', '#facc15'] as unknown as string, 'fill-opacity': 0.16 } }, firstSymbol);
+      m.addLayer({ id: 'warnings-edge', type: 'line', source: 'warnings', paint: { 'line-color': '#facc15', 'line-width': 1.5, 'line-opacity': 0.7 } }, firstSymbol);
+      m.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'] as unknown as string, 'line-width': 3, 'line-dasharray': [1.5, 1.5], 'line-opacity': 0.9 } });
+      m.addSource('roads', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'roads', type: 'circle', source: 'roads', minzoom: 5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 3, 9, 6], 'circle-color': ROAD_COLORS, 'circle-stroke-color': '#02040a', 'circle-stroke-width': 1, 'circle-opacity': 0.9 } });
+      m.addLayer({ id: 'roads-gust', type: 'symbol', source: 'roads', minzoom: 7, filter: ['>=', ['get', 'gust'], 15], layout: { 'text-field': ['concat', ['to-string', ['round', ['get', 'gust']]], ' m/s'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': '#c4b5fd', 'text-halo-color': '#02040a', 'text-halo-width': 1.2 } });
       m.addSource('sightings', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({
         id: 'sightings',
@@ -174,6 +186,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
     vis('night-edge', mapLayers.night);
     vis('lights', mapLayers.light);
     vis('sightings', mapLayers.sightings);
+    for (const id of ['roads', 'roads-gust', 'warnings', 'warnings-edge']) vis(id, mapLayers.roads);
     markers.current.spots.forEach((mk) => (mk.getElement().style.display = mapLayers.spots ? '' : 'none'));
     markers.current.cams.forEach((mk) => (mk.getElement().style.display = mapLayers.cams ? '' : 'none'));
   }, [mapLayers, ready]);
@@ -205,6 +218,38 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
     if (!m || !ready) return;
     (m.getSource('night') as GeoJSONSource).setData(nightGeoJSON(at, -12));
   }, [at, ready]);
+
+  // ── roads (Vegagerðin) & IMO warnings ──
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    (m.getSource('roads') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: (roads.data?.data ?? []).map((r) => ({ type: 'Feature', properties: { kind: r.kind, gust: r.gustMs ?? 0, name: r.name }, geometry: { type: 'Point', coordinates: [r.lon, r.lat] } })),
+    });
+  }, [roads.data, ready]);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    (m.getSource('warnings') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: (warnings.data?.data ?? [])
+        .filter((w) => w.polygon && w.polygon.length >= 3)
+        .map((w) => ({ type: 'Feature', properties: { severity: w.severity, headline: w.headline }, geometry: { type: 'Polygon', coordinates: [[...w.polygon!.map(([la, lo]) => [lo, la]), [w.polygon![0]![1], w.polygon![0]![0]]]] } })),
+    });
+  }, [warnings.data, ready]);
+  // route line from you to the picked spot, coloured by the worst condition along the corridor
+  const route = useRoute(location, sheet === 'spot' && picked ? picked.spot : null);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const worst = route.data?.data.worst;
+    const color = worst === 'closed' ? '#fb7185' : worst === 'wind' ? '#a78bfa' : worst === 'slippery' ? '#facc15' : worst === 'clear' ? '#4ade80' : '#94a3b8';
+    (m.getSource('route') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: sheet === 'spot' && picked ? [{ type: 'Feature', properties: { color }, geometry: { type: 'LineString', coordinates: [[location.lon, location.lat], [picked.spot.lon, picked.spot.lat]] } }] : [],
+    });
+  }, [route.data, sheet, picked, location.lat, location.lon, ready]);
 
   // ── sightings ──
   useEffect(() => {
@@ -380,13 +425,14 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent }:
         onClose={() => setSheet(null)}
         atLabel={atLabel}
         windowEnd={windowEnd}
+        onPlan={onPlan}
         onPick={(r) => {
           setPicked(r);
           setSheet('spot');
           flyTo(r.spot.lon, r.spot.lat, 9);
         }}
       />
-      <SpotSheet r={picked} open={sheet === 'spot'} onClose={() => setSheet(null)} windowEnd={windowEnd} />
+      <SpotSheet r={picked} open={sheet === 'spot'} onClose={() => setSheet(null)} windowEnd={windowEnd} onPlan={onPlan} />
     </div>
   );
 }

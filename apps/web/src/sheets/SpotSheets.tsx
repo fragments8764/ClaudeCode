@@ -1,9 +1,9 @@
-import { mapsLinks, type RankedSpot } from '@nordurljos/core';
+import { mapsLinks, roadTypeWarning, type RankedSpot } from '@nordurljos/core';
 import { motion } from 'motion/react';
-import { Car, Compass, MapPin, ParkingCircle, Share2, Sparkles, TriangleAlert, Warehouse } from 'lucide-react';
+import { Car, Compass, MapPin, ParkingCircle, Share2, ShieldCheck, Sparkles, TriangleAlert, Warehouse } from 'lucide-react';
 import { useState } from 'react';
 import { spring } from '../design/tokens';
-import { useSafety } from '../lib/api';
+import { useRoute, useSafety } from '../lib/api';
 import { hhmm } from '../lib/format';
 import { isApple, shareText } from '../lib/share';
 import { useSettings } from '../lib/store';
@@ -26,6 +26,60 @@ export function planText(r: RankedSpot, from: string, windowEnd: string | null) 
     `Aurora plan: driving from ${from} to ${r.spot.name} (${r.spot.region}), about ${r.driveMin} min each way.` +
     (back ? ` Expect to be back around ${hhmm(back)}.` : '') +
     ` Location: https://maps.google.com/?q=${r.spot.lat.toFixed(4)},${r.spot.lon.toFixed(4)} — Iceland emergency number 112.`
+  );
+}
+
+const SEG_COLOR = { clear: 'var(--c-good)', slippery: 'var(--c-fair)', wind: 'var(--c-violet)', closed: 'var(--c-poor)', unknown: 'rgb(255 255 255 / 0.18)' } as const;
+const SEG_LABEL = { clear: 'clear', slippery: 'slippery / ice', wind: 'gusts ≥ 15 m/s', closed: 'closed', unknown: 'no data' } as const;
+
+/** Colour-coded road corridor from you to the spot (Vegagerðin stations along the way). */
+export function RouteCorridor({ r }: { r: RankedSpot }) {
+  const from = useSettings((s) => s.location);
+  const q = useRoute(from, r.spot);
+  const c = q.data?.data;
+  const typeWarn = roadTypeWarning(r.spot.roadType, c?.segments.map((x) => x.condition).join(' '));
+  return (
+    <div className="mt-4">
+      <h3 className="mb-2 text-[11px] uppercase tracking-[0.22em] text-ink-3">Roads on the way</h3>
+      {q.isLoading && !c ? (
+        <div className="skeleton h-3 rounded-full" />
+      ) : c && c.segments.length ? (
+        <>
+          <div className="flex h-3 gap-[2px] overflow-hidden rounded-full" role="img" aria-label={`Road conditions along the route: ${c.segments.map((s) => `${s.station} ${SEG_LABEL[s.kind]}`).join(', ')}`}>
+            {c.segments.map((s, i) => (
+              <span key={s.station + i} className="flex-1" style={{ background: SEG_COLOR[s.kind] }} title={`${s.station}: ${s.condition ?? SEG_LABEL[s.kind]}${s.gustMs != null ? `, gusts ${Math.round(s.gustMs)} m/s` : ''}`} />
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-[11px] text-ink-3">
+            <span>you</span>
+            <span>
+              {c.maxGust != null ? `max gust ${Math.round(c.maxGust)} m/s · ` : ''}
+              {c.segments.length} stations
+            </span>
+            <span>spot</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-3">
+            {(['clear', 'slippery', 'wind', 'closed'] as const).map((k) => (
+              <span key={k}>
+                <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: SEG_COLOR[k] }} aria-hidden />
+                {SEG_LABEL[k]}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-[13px] text-ink-3">No road-weather stations along this route.</p>
+      )}
+      {(!!typeWarn || (c?.warnings.length ?? 0) > 0) && (
+        <ul className="mt-3 space-y-1.5 text-[14px] leading-snug">
+          {typeWarn && <li className="flex gap-2 text-fair"><TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />{typeWarn}</li>}
+          {c?.warnings.map((w) => (
+            <li key={w} className="flex gap-2 text-ink-2"><TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-fair" aria-hidden />{w}</li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] text-ink-3">Approximate corridor (stations within 15 km of the straight line). Check umferdin.is for your exact route.</p>
+    </div>
   );
 }
 
@@ -96,7 +150,7 @@ function SpotFacts({ r }: { r: RankedSpot }) {
   );
 }
 
-function TripActions({ r, windowEnd }: { r: RankedSpot; windowEnd: string | null }) {
+function TripActions({ r, windowEnd, onPlan }: { r: RankedSpot; windowEnd: string | null; onPlan?: (r: RankedSpot) => void }) {
   const from = useSettings((s) => s.location.label);
   const [shared, setShared] = useState<string | null>(null);
   return (
@@ -108,17 +162,17 @@ function TripActions({ r, windowEnd }: { r: RankedSpot; windowEnd: string | null
       </a>
       <Press
         className="h-14 w-14"
-        aria-label="Tell someone your plan"
-        onClick={async () => setShared(await shareText('My aurora plan', planText(r, from, windowEnd)))}
+        aria-label="Share my plan"
+        onClick={async () => (onPlan ? onPlan(r) : setShared(await shareText('My aurora plan', planText(r, from, windowEnd))))}
       >
-        <Share2 size={18} strokeWidth={1.5} aria-hidden />
+        {onPlan ? <ShieldCheck size={18} strokeWidth={1.5} aria-hidden /> : <Share2 size={18} strokeWidth={1.5} aria-hidden />}
       </Press>
       {shared === 'copied' && <span className="sr-only" role="status">Plan copied</span>}
     </div>
   );
 }
 
-export function SpotSheet({ r, open, onClose, windowEnd }: { r: RankedSpot | null; open: boolean; onClose: () => void; windowEnd: string | null }) {
+export function SpotSheet({ r, open, onClose, windowEnd, onPlan }: { r: RankedSpot | null; open: boolean; onClose: () => void; windowEnd: string | null; onPlan?: (r: RankedSpot) => void }) {
   return (
     <Sheet
       open={open && !!r}
@@ -145,7 +199,8 @@ export function SpotSheet({ r, open, onClose, windowEnd }: { r: RankedSpot | nul
             <Stat k="Cloud" v={r.cloud == null ? '—' : `${r.cloud}%`} tone={r.cloud != null && r.cloud <= 30 ? 'text-good' : undefined} />
             <Stat k="Drive" v={`${r.driveMin} min`} />
           </div>
-          <TripActions r={r} windowEnd={windowEnd} />
+          <TripActions r={r} windowEnd={windowEnd} onPlan={onPlan} />
+          <RouteCorridor r={r} />
           <SpotFacts r={r} />
           <TripSafety r={r} windowEnd={windowEnd} />
           <p className="mt-4 pb-4 text-[12px] text-ink-3">Drive time is a straight-line estimate (×1.35, 70 km/h). Never trespass, and park only where it's allowed.</p>
@@ -172,6 +227,7 @@ export function BestSpotSheet({
   onPick,
   atLabel,
   windowEnd,
+  onPlan,
 }: {
   ranked: RankedSpot[];
   open: boolean;
@@ -179,6 +235,7 @@ export function BestSpotSheet({
   onPick: (r: RankedSpot) => void;
   atLabel: string;
   windowEnd: string | null;
+  onPlan?: (r: RankedSpot) => void;
 }) {
   const { radiusKm, set } = useSettings();
   const best = ranked[0];
@@ -210,7 +267,8 @@ export function BestSpotSheet({
               {best.cloud == null ? 'cloud ?' : `${best.cloud}% cloud`} · {best.distanceKm} km · ~{best.driveMin} min drive
             </div>
           </motion.button>
-          <TripActions r={best} windowEnd={windowEnd} />
+          <TripActions r={best} windowEnd={windowEnd} onPlan={onPlan} />
+          <RouteCorridor r={best} />
           <h3 className="mb-1 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Other options</h3>
           <ul className="divide-y divide-[rgb(255_255_255/0.06)] pb-6">
             {ranked.slice(1, 8).map((r) => (

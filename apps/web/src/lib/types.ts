@@ -112,7 +112,7 @@ export interface Camera {
 }
 
 export interface SafetyData {
-  warnings: { id: string; headline: string; description: string; event: string; severity: string; onset: string | null; expires: string | null; area: string; here: boolean | null }[];
+  warnings: { id: string; headline: string; description: string; event: string; severity: string; onset: string | null; expires: string | null; area: string; here: boolean | null; polygon?: [number, number][] | null }[];
   roads: {
     station: { id: number; name: string; lat: number; lon: number; time: string | null; windMs: number | null; gustMs: number | null; airC: number | null; roadC: number | null };
     distanceKm: number;

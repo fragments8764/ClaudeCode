@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
-import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, LayoutGrid, MapPin, MessageCircleQuestion, Moon, SlidersHorizontal, TriangleAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, Lightbulb, LayoutGrid, MapPin, MessageCircleQuestion, Moon, ShieldCheck, SlidersHorizontal, TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { spring, STAGGER } from '../design/tokens';
 import { Freshness } from '../components/Freshness';
@@ -14,6 +14,8 @@ import { useSettings } from '../lib/store';
 import { useSafetySummary } from '../sheets/SafetySheet';
 import { pendingFeedback } from '../sheets/FeedbackSheet';
 import { ageText, staleSources } from '../lib/staleness';
+import { useActivePlan } from '../sheets/PlanSheet';
+import { contextualTip, dismissTip } from '../lib/tips';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
 import { PullToRefresh } from '../ui/PullToRefresh';
@@ -27,7 +29,7 @@ const item = {
   show: { opacity: 1, y: 0, transition: spring },
 };
 
-export function TonightScreen({ c, open, openTool, onFeedback, online }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety' | 'health') => void; onFeedback: (night: string) => void; online: boolean }) {
+export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }: { c: Conditions; open: (s: SheetId) => void; openTool: (t: 'planner' | 'safety' | 'health') => void; onFeedback: (night: string) => void; online: boolean; onPlan: () => void }) {
   const t = useT();
   const qc = useQueryClient();
   const location = useSettings((s) => s.location);
@@ -62,6 +64,11 @@ export function TonightScreen({ c, open, openTool, onFeedback, online }: { c: Co
   const stale = DEMO ? [] : staleSources(metas, c.now);
   const oldest = metas.map((m) => m.fetchedAt).filter((x): x is string => !!x).sort()[0];
   const feedback = pendingFeedback(c.now);
+  const plan = useActivePlan();
+  const planOverdue = plan && c.now.getTime() > new Date(plan.returnBy).getTime();
+  const [tipTick, setTipTick] = useState(0);
+  const w = c.clouds.data?.data.weather;
+  const tip = tipTick >= 0 ? contextualTip({ dark: c.sun.darknessFactor >= 0.6, score: s?.score ?? 0, feelsLike: w?.feelsLike ?? null, airC: w?.temperature ?? null, gust: Math.max(w?.windGust ?? 0, safety.gust), planActive: !!plan }) : null;
 
   const best = c.best;
   const nowMs = c.now.getTime();
@@ -105,6 +112,12 @@ export function TonightScreen({ c, open, openTool, onFeedback, online }: { c: Co
           </motion.button>
         )}
 
+        {plan && (
+          <motion.button variants={item} onClick={onPlan} className={`glass pill mx-auto mt-3 flex min-h-[44px] items-center gap-2 px-4 text-[13px] ${planOverdue ? 'text-poor' : ''}`}>
+            <ShieldCheck size={15} strokeWidth={1.75} aria-hidden /> {planOverdue ? t('plan.overdue') : t('plan.active', { t: hhmm(plan.returnBy) })}
+          </motion.button>
+        )}
+
         {feedback && (
           <motion.button variants={item} onClick={() => onFeedback(feedback.night)} className="glass pill mx-auto mt-3 flex min-h-[44px] items-center gap-2 px-4 text-[13px]">
             <MessageCircleQuestion size={15} strokeWidth={1.75} aria-hidden /> {t('feedback.card')} <span className="text-[rgb(var(--aurora-rgb))]">{t('feedback.cta')}</span>
@@ -130,6 +143,27 @@ export function TonightScreen({ c, open, openTool, onFeedback, online }: { c: Co
             )}
           </motion.div>
         </div>
+
+        {tip && (
+          <motion.div variants={item} className="mb-3">
+            <div className="glass flex items-start gap-3 px-4 py-3" style={{ borderRadius: 'var(--r-lg)' }} role="note">
+              <Lightbulb size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-fair" aria-hidden />
+              <div className="min-w-0 flex-1 leading-snug">
+                <div className="text-[14px] font-medium">{tip.title}</div>
+                <div className="text-[13px] text-ink-2">{tip.body}</div>
+              </div>
+              <button
+                onClick={() => {
+                  dismissTip(tip.id);
+                  setTipTick((n) => n + 1);
+                }}
+                className="min-h-[44px] shrink-0 px-2 text-[13px] text-ink-2"
+              >
+                {t('tip.gotit')}
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Stat pills */}
         <motion.div variants={item} className="flex gap-2">

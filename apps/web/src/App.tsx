@@ -10,6 +10,10 @@ import { startOutbox } from './lib/outbox';
 import { FeedbackSheet, recordNight } from './sheets/FeedbackSheet';
 import { HealthSheet } from './sheets/HealthSheet';
 import { PrepareSheet } from './sheets/PrepareSheet';
+import { PlanSheet } from './sheets/PlanSheet';
+import { PlanViewer } from './screens/PlanViewer';
+import { startLiveLocation } from './lib/plan';
+import type { RankedSpot } from '@nordurljos/core';
 import { stats, useJournal } from './lib/journal';
 import { shareFile } from './lib/share';
 import { setPadIntensity, startPad, stopPad } from './lib/sound';
@@ -98,6 +102,14 @@ export default function App() {
 
   // offline outbox (queued sightings / feedback) replays when signal returns
   useEffect(() => startOutbox(), []);
+  // opt-in live location for an active shared plan
+  useEffect(() => startLiveLocation(), []);
+  const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
+  const openPlan = (r?: RankedSpot | null) => {
+    const end = c.best?.end ?? c.plan.darkEnd;
+    const ret = r && end ? new Date(new Date(end).getTime() + r.driveMin * 60_000).toISOString() : end;
+    setPlanFor({ dest: r ? { name: r.spot.name, lat: r.spot.lat, lon: r.spot.lon } : null, ret });
+  };
 
   // "Did you see it?" — deep link from the morning push: #/feedback?night=YYYY-MM-DD
   useEffect(() => {
@@ -198,8 +210,21 @@ export default function App() {
   };
 
   // Onboarding brightens the sky as you progress
-  const showOnb = !onboarded && route !== 'widget';
+  const showOnb = !onboarded && route !== 'widget' && !route.startsWith('plan/');
   const sky = useMemo(() => (showOnb ? { ...c.sky, intensity: 0.25 + onbStep * 0.3, speed: 0.6 + onbStep * 0.25 } : c.sky), [showOnb, onbStep, c.sky]);
+
+  const planRoute = route.match(/^plan\/([0-9a-f]{6,40})(\?checkin=1)?/);
+  if (planRoute) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <RefractionDefs />
+        <AuroraSky params={c.sky} night={nightVision} reducedMotion={reduced} lowPower={lowPower} />
+        <main className="relative" style={{ zIndex: 'var(--z-content)' }}>
+          <PlanViewer id={planRoute[1]!} wantCheckin={!!planRoute[2]} />
+        </main>
+      </MotionConfig>
+    );
+  }
 
   if (route === 'widget') {
     return (
@@ -215,7 +240,7 @@ export default function App() {
   const screen = (() => {
     switch (tab) {
       case 'tonight':
-        return <TonightScreen c={c} online={online} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} onFeedback={setFeedbackNight} />;
+        return <TonightScreen c={c} online={online} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} onFeedback={setFeedbackNight} onPlan={() => openPlan(null)} />;
       case 'space':
         return <SpaceScreen c={c} />;
       case 'map':
@@ -225,6 +250,7 @@ export default function App() {
               c={c}
               intent={mapIntent}
               clearIntent={() => setMapIntent(null)}
+              onPlan={(r) => openPlan(r)}
               openCamera={(id) => {
                 go('cameras');
                 setCamId(id);
@@ -302,7 +328,8 @@ export default function App() {
           setCamId(id);
         }}
       />
-      <SafetySheet c={c} open={tool === 'safety'} onClose={closeTool} />
+      <SafetySheet c={c} open={tool === 'safety'} onClose={closeTool} onPlan={() => (setTool(null), openPlan(null))} />
+      <PlanSheet open={!!planFor} onClose={() => setPlanFor(null)} destination={planFor?.dest ?? null} suggestedReturn={planFor?.ret ?? null} />
       <HealthSheet c={c} open={tool === 'health'} onClose={closeTool} />
       <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />
       <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />

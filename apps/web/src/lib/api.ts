@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
-import { resolveWeights, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
+import { resolveWeights, type Corridor, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
@@ -107,4 +107,24 @@ export function useWeights(): { weights: Weights; version: string } {
   const q = usePersistedQuery<{ data: { version: string; weights: Weights } }>('score-weights', '/api/score-weights', 30 * 60_000);
   const raw = q.data?.data;
   return useMemo(() => ({ weights: resolveWeights(raw?.weights ?? null), version: raw?.version ?? 'default' }), [raw]);
+}
+
+export interface RoadPoint {
+  name: string;
+  lat: number;
+  lon: number;
+  gustMs: number | null;
+  windMs: number | null;
+  roadC: number | null;
+  airC: number | null;
+  time: string | null;
+  kind: 'clear' | 'slippery' | 'closed' | 'wind' | 'unknown';
+  condition: string | null;
+}
+export const useRoads = (enabled = true) => usePersistedQuery<Envelope<RoadPoint[]>>('roads', '/api/roads', 10 * 60_000, enabled);
+export const useWarnings = () => usePersistedQuery<Envelope<SafetyData['warnings']>>('warnings', '/api/warnings', 10 * 60_000);
+export function useRoute(from: { lat: number; lon: number }, to: { lat: number; lon: number } | null) {
+  const f = `${snap(from.lat)},${snap(from.lon)}`;
+  const t = to ? `${to.lat.toFixed(3)},${to.lon.toFixed(3)}` : '';
+  return usePersistedQuery<Envelope<Corridor>>(`route:${f}:${t}`, `/api/route?fromLat=${snap(from.lat)}&fromLon=${snap(from.lon)}&toLat=${to?.lat}&toLon=${to?.lon}`, 10 * 60_000, !!to);
 }

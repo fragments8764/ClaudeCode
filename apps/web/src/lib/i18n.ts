@@ -9,6 +9,9 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'plan.active': 'Plan shared · back by {t}',
+  'plan.overdue': 'Past your return time · check in',
+  'tip.gotit': 'Got it',
   'tool.health': 'Data health',
   'tool.health.sub': 'Every source, live status',
   'tool.prepare': 'Prepare for tonight',
@@ -87,6 +90,9 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'plan.active': 'Plan deilt · til baka fyrir {t}',
+  'plan.overdue': 'Komin(n) fram yfir heimkomutíma · láttu vita',
+  'tip.gotit': 'Skilið',
   'tool.health': 'Gagnastaða',
   'tool.health.sub': 'Allar uppsprettur, staða í beinni',
   'tool.prepare': 'Undirbúa kvöldið',
@@ -164,6 +170,9 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'plan.active': 'Plan geteilt · zurück bis {t}',
+  'plan.overdue': 'Rückkehrzeit überschritten · melde dich',
+  'tip.gotit': 'Verstanden',
   'tool.health': 'Datenstatus',
   'tool.health.sub': 'Alle Quellen, Live-Status',
   'tool.prepare': 'Für heute Nacht vorbereiten',
@@ -241,6 +250,9 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'plan.active': 'Plan partagé · retour avant {t}',
+  'plan.overdue': 'Heure de retour dépassée · confirmez',
+  'tip.gotit': 'Compris',
   'tool.health': 'État des données',
   'tool.health.sub': 'Toutes les sources, en direct',
   'tool.prepare': 'Préparer la soirée',
@@ -318,6 +330,9 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'plan.active': '计划已分享 · {t} 前返回',
+  'plan.overdue': '已过返回时间 · 请报平安',
+  'tip.gotit': '知道了',
   'tool.health': '数据状态',
   'tool.health.sub': '所有数据源的实时状态',
   'tool.prepare': '为今晚做准备',
@@ -395,6 +410,9 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'plan.active': '計画を共有中 · {t} までに帰還',
+  'plan.overdue': '帰還予定を過ぎました · 無事を連絡',
+  'tip.gotit': '了解',
   'tool.health': 'データ状況',
   'tool.health.sub': '全データソースの状態',
   'tool.prepare': '今夜の準備',
