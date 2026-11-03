@@ -29,6 +29,9 @@ import {
 } from '@nordurljos/core';
 import { Fetcher, type FetchResult } from './lib/fetcher';
 import { SOURCES, type SourceId } from './lib/sources';
+import { ConfigLoader, type CameraDef } from './lib/config';
+import { registerExtras, type SendPush } from './routes/extras';
+import type { Spot } from '@nordurljos/core';
 
 export const UPSTREAM = {
   kp: 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json',
@@ -54,7 +57,7 @@ export interface SourceMeta {
   error?: string;
 }
 
-function meta<T>(id: SourceId, r: PromiseSettledResult<FetchResult<T>>): SourceMeta {
+export function meta<T>(id: SourceId, r: PromiseSettledResult<FetchResult<T>>): SourceMeta {
   const s = SOURCES[id];
   const base = { id: s.id, name: s.name, attribution: s.attribution, homepage: s.homepage };
   if (r.status === 'fulfilled') return { ...base, ok: true, stale: r.value.stale, fetchedAt: r.value.fetchedAt };
@@ -96,7 +99,7 @@ function nearest<T extends { time: string }>(series: T[], t: Date): T | null {
   return d <= 90 * 60_000 ? best : null;
 }
 
-function parseLatLon(q: (k: string) => string | undefined) {
+export function parseLatLon(q: (k: string) => string | undefined) {
   const lat = Number(q('lat'));
   const lon = Number(q('lon'));
   if (!isValidLatLon(lat, lon)) return null;
@@ -108,9 +111,16 @@ export interface AppOptions {
   fetcher: Fetcher;
   corsOrigin?: string;
   now?: () => Date;
+  /** config/ directory (spots, cameras); null = use `inlineConfig` (tests) */
+  configDir?: string | null;
+  inlineConfig?: { spots?: Spot[]; cameras?: CameraDef[] };
+  /** data/ directory for subscriptions, sightings, VAPID keys; null = memory only */
+  dataDir?: string | null;
+  vapid?: { publicKey: string; privateKey: string; subject: string } | null;
+  sendPush?: SendPush;
 }
 
-export function createApp({ fetcher, corsOrigin = '*', now = () => new Date() }: AppOptions) {
+export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), configDir = null, inlineConfig, dataDir = null, vapid = null, sendPush }: AppOptions) {
   const app = new Hono();
   const started = now();
 
@@ -207,7 +217,7 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date() }:
 
   // ---- routes ----
 
-  app.use('/api/*', cors({ origin: corsOrigin, allowMethods: ['GET'] }));
+  app.use('/api/*', cors({ origin: corsOrigin, allowMethods: ['GET', 'POST'] }));
   app.use('/api/*', async (c, next) => {
     await next();
     if (c.res.status === 200 && !c.res.headers.has('Cache-Control')) c.header('Cache-Control', 'public, max-age=60');
@@ -254,6 +264,16 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date() }:
   app.get('/api/score', async (c) => {
     const ll = parseLatLon((k) => c.req.query(k));
     if (!ll) return c.json({ error: 'lat and lon query parameters are required and must be valid' }, 400);
+    const r = await scoreAt(ll.lat, ll.lon);
+    return c.json({ data: r.data, meta: { generatedAt: now().toISOString(), sources: r.sources } });
+  });
+
+  /**
+   * Composite Aurora Score for a location, computed server-side with the same pure
+   * function the app uses. Used by /api/score, widgets, share cards and the alert poller.
+   */
+  async function scoreAt(lat: number, lon: number) {
+    const ll = { lat, lon };
     const [sw, cl, au] = await Promise.all([spaceWeather(), clouds(ll.lat, ll.lon), aurora(ll.lat, ll.lon)]);
     const t = now();
     const moon = moonState(t, ll.lat, ll.lon);
@@ -277,11 +297,15 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date() }:
         return { sunAlt: sunAltitudeDeg(d, ll.lat, ll.lon), moonAlt: m.altitudeDeg, moonIllumination: m.illumination };
       },
     );
-    return c.json({
+    return {
       data: { location: ll, ...result, best: bestWindow(outlook), outlook },
-      meta: { generatedAt: t.toISOString(), sources: [...sw.sources, ...cl.sources, ...au.sources] },
-    });
-  });
+      sources: [...sw.sources, ...cl.sources, ...au.sources],
+      raw: { sw: sw.data, clouds: cl.data, aurora: au.data },
+    };
+  }
+
+  const config = new ConfigLoader(configDir, inlineConfig);
+  const services = registerExtras(app, { fetcher, now, config, dataDir, vapid, sendPush, spaceWeather, clouds, aurora, scoreAt, parseLatLon, meta });
 
   app.notFound((c) => (c.req.path.startsWith('/api/') ? c.json({ error: 'not found' }, 404) : c.text('Not found', 404)));
   app.onError((err, c) => {
@@ -289,5 +313,5 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date() }:
     return c.json({ error: 'internal error' }, 500);
   });
 
-  return app;
+  return Object.assign(app, { services });
 }

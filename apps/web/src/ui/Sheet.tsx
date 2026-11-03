@@ -1,6 +1,7 @@
 import { AnimatePresence, animate, motion, useDragControls, useMotionValue, useTransform, type PanInfo } from 'motion/react';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { spring } from '../design/tokens';
 import { haptic } from '../lib/haptics';
 import { useReducedMotionPref } from '../lib/store';
@@ -77,7 +78,8 @@ export function Sheet({ open, onClose, title, header, children, initial = 'half'
     go(best);
   };
 
-  return (
+  // Portal to <body>: sheets must sit above the tab bar whatever screen opened them.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0" style={{ zIndex: 'var(--z-sheet)' }}>
@@ -120,6 +122,7 @@ export function Sheet({ open, onClose, title, header, children, initial = 'half'
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

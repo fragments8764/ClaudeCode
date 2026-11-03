@@ -76,3 +76,66 @@ export interface AuroraAt {
   peakLon: number;
   forecastTime: string | null;
 }
+
+export interface OvationGridData {
+  latMin: number;
+  latMax: number;
+  values: number[];
+  forecastTime: string | null;
+  observationTime: string | null;
+}
+
+export interface Camera {
+  id: string;
+  name: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+  kind: string;
+  embed: 'image' | 'link';
+  image: string | null;
+  pageUrl: string;
+  attribution: string;
+  note?: string;
+  status: 'live' | 'stale' | 'offline' | 'link';
+  updatedAt: string | null;
+  cloudNow: number | null;
+  frames: number;
+}
+
+export interface SafetyData {
+  warnings: { id: string; headline: string; description: string; event: string; severity: string; onset: string | null; expires: string | null; area: string; here: boolean | null }[];
+  roads: {
+    station: { id: number; name: string; lat: number; lon: number; time: string | null; windMs: number | null; gustMs: number | null; airC: number | null; roadC: number | null };
+    distanceKm: number;
+    conditions: { name: string; condition: string; severity: 'ok' | 'caution' | 'closed' | 'unknown'; updated: string | null }[];
+  }[];
+}
+
+export interface ClearNow {
+  observed: { name: string; oktas: number | null; baseM: number | null; time: string; distanceKm: number } | null;
+  model: { effective: number | null } | null;
+  camera: { id: string; name: string; embed: 'image' | 'link'; image: string | null; pageUrl: string; attribution: string; distanceKm: number } | null;
+}
+
+export interface NowcastData {
+  level: 'quiet' | 'loading' | 'likely' | 'onset';
+  headline: string;
+  detail: string;
+  southMinutes: number;
+  bzAvg30: number | null;
+  groundBay: number | null;
+  kpEstimate: { time: string; kp: number } | null;
+  ground: { station: string; name: string; latest: string; series: { time: string; x: number }[] } | null;
+}
+
+export interface SightingData {
+  id: string;
+  at: string;
+  lat: number;
+  lon: number;
+  brightness: number;
+  colors: string[];
+  direction: string | null;
+}

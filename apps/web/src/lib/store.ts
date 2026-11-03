@@ -35,6 +35,16 @@ export const DEFAULT_LOCATION: UserLocation = {
   at: new Date(0).toISOString(),
 };
 
+export interface MapLayers {
+  aurora: boolean;
+  clouds: boolean;
+  night: boolean;
+  light: boolean;
+  spots: boolean;
+  cams: boolean;
+  sightings: boolean;
+}
+
 export interface Prefs {
   nightVision: boolean;
   reduceMotion: TriState;
@@ -46,6 +56,13 @@ export interface Prefs {
   units: Units;
   language: Language;
   alerts: AlertPrefs;
+  mapLayers: MapLayers;
+  /** best-spot search radius, km */
+  radiusKm: number;
+  favorites: string[];
+  onboarded: boolean;
+  /** lens for photographer mode */
+  lens: { focalMm: number; aperture: number; crop: number; phone: boolean };
 }
 
 interface Settings extends Prefs {
@@ -67,6 +84,11 @@ export const DEFAULT_PREFS: Prefs = {
   units: 'metric',
   language: 'en',
   alerts: { enabled: false, minScore: 50, minKp: 4, bzSouth: true, quietStart: '02:00', quietEnd: '07:00' },
+  mapLayers: { aurora: true, clouds: true, night: true, light: false, spots: true, cams: true, sightings: true },
+  radiusKm: 120,
+  favorites: [],
+  onboarded: false,
+  lens: { focalMm: 14, aperture: 2.8, crop: 1, phone: false },
 };
 
 export const useSettings = create<Settings>()(
@@ -81,7 +103,7 @@ export const useSettings = create<Settings>()(
     }),
     {
       name: 'nordurljos-settings',
-      version: 2,
+      version: 3,
       migrate: (old, version) => {
         const o = (old ?? {}) as Record<string, unknown>;
         if (version < 2) {
@@ -89,7 +111,8 @@ export const useSettings = create<Settings>()(
           const { theme, ...rest } = o;
           return { ...DEFAULT_PREFS, ...rest, nightVision: theme === 'red' } as unknown as Settings;
         }
-        return o as unknown as Settings;
+        // v3 added map layers, favorites, onboarding, lens — fill defaults
+        return { ...DEFAULT_PREFS, ...o } as unknown as Settings;
       },
     },
   ),

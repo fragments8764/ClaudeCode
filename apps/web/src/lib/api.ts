@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { snapCoord } from '@nordurljos/core';
-import type { AuroraAt, Clouds, Envelope, Health, SpaceWeather } from './types';
+import type { ValueGrid, Spot } from '@nordurljos/core';
+import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
-async function getJson<T>(path: string, timeoutMs = 12_000): Promise<T> {
+export async function getJson<T>(path: string, timeoutMs = 12_000): Promise<T> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -76,3 +77,27 @@ export function useAurora(lat: number, lon: number) {
 export function useHealth() {
   return useQuery({ queryKey: ['health'], queryFn: () => getJson<Health>('/api/health'), refetchInterval: 15_000 });
 }
+
+const snap = (v: number) => snapCoord(v);
+
+export const useCloudGrid = () => usePersistedQuery<Envelope<ValueGrid>>('grid-clouds', '/api/grid/clouds', 30 * 60_000);
+export const useOvationGrid = () => usePersistedQuery<Envelope<OvationGridData>>('grid-ovation', '/api/grid/ovation', 5 * 60_000);
+export const useSpots = () => usePersistedQuery<{ data: Spot[] }>('spots', '/api/spots', 6 * 3600_000);
+export const useCameras = () => usePersistedQuery<Envelope<Camera[]>>('cameras', '/api/cameras', 3 * 60_000);
+export const useNowcast = () => usePersistedQuery<Envelope<NowcastData>>('nowcast', '/api/nowcast', 2 * 60_000);
+export const useSightings = () => usePersistedQuery<{ data: SightingData[] }>('sightings', '/api/sightings?hours=6', 60_000);
+export function useSafety(lat: number, lon: number, enabled = true) {
+  return usePersistedQuery<Envelope<SafetyData>>(`safety:${snap(lat)},${snap(lon)}`, `/api/safety?lat=${snap(lat)}&lon=${snap(lon)}`, 10 * 60_000, enabled);
+}
+export function useClearNow(lat: number, lon: number, enabled: boolean) {
+  return usePersistedQuery<Envelope<ClearNow>>(`clear:${snap(lat)},${snap(lon)}`, `/api/clear-now?lat=${snap(lat)}&lon=${snap(lon)}`, 3 * 60_000, enabled);
+}
+
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+  return j as T;
+}
+
+export const apiUrl = (p: string) => `${API_BASE}${p}`;

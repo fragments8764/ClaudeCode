@@ -1,6 +1,6 @@
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
-import { Camera, CloudOff, Map as MapIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { CloudOff } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { calm, scoreColor, spring } from './design/tokens';
 import { useTilt } from './hooks/useTilt';
 import { useConditions } from './lib/conditions';
@@ -8,12 +8,15 @@ import { applyPrefs, useReducedMotionPref, useSettings, type Tab } from './lib/s
 import { ActivitySheet, CloudSheet, MoonSheet } from './sheets/DetailSheets';
 import { LocationSheet } from './sheets/LocationSheet';
 import { SettingsSheet } from './sheets/SettingsSheet';
-import { PlaceholderScreen } from './screens/Placeholder';
+import { CamerasScreen } from './screens/Cameras';
+import { ClearNowSheet } from './sheets/ClearNowSheet';
 import { SpaceScreen } from './screens/Space';
 import { TonightScreen, type SheetId } from './screens/Tonight';
 import { AuroraSky } from './sky/AuroraSky';
 import { Glass, RefractionDefs } from './ui/Glass';
 import { TabBar } from './ui/TabBar';
+
+const MapScreen = lazy(() => import('./screens/MapScreen'));
 
 const ORDER: Tab[] = ['tonight', 'map', 'cameras', 'space'];
 const isTab = (s: string): s is Tab => (ORDER as string[]).includes(s);
@@ -41,6 +44,8 @@ export default function App() {
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const close = useCallback(() => setSheet(null), []);
   const [dir, setDir] = useState(1);
+  const [camId, setCamId] = useState<string | null>(null);
+  const [clearNow, setClearNow] = useState(false);
 
   useEffect(() => applyPrefs({ nightVision, reduceTransparency, lowPower }), [nightVision, reduceTransparency, lowPower]);
   useTilt(!reduced && !lowPower);
@@ -76,9 +81,19 @@ export default function App() {
       case 'space':
         return <SpaceScreen c={c} />;
       case 'map':
-        return <PlaceholderScreen icon={MapIcon} title="Live aurora map" body="Aurora oval, cloud mist, dark-sky spots and the nearest clear patch — arriving in the next build." />;
+        return (
+          <Suspense fallback={<div className="grid min-h-dvh place-items-center"><div className="skeleton h-10 w-48 rounded-full" /></div>}>
+            <MapScreen
+              c={c}
+              openCamera={(id) => {
+                go('cameras');
+                setCamId(id);
+              }}
+            />
+          </Suspense>
+        );
       case 'cameras':
-        return <PlaceholderScreen icon={Camera} title="Live cameras" body="A calm wall of Icelandic sky and road cameras, plus aurora cams around the Arctic — arriving soon." />;
+        return <CamerasScreen openId={camId} setOpenId={setCamId} onClearNow={() => setClearNow(true)} />;
     }
   })();
 
@@ -103,11 +118,17 @@ export default function App() {
             <motion.div
               key={tab}
               custom={dir}
-              variants={{
-                enter: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * 28 }),
-                center: { opacity: 1, x: 0 },
-                exit: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * -28 }),
-              }}
+              // The map is full-bleed `position: fixed`; a transformed ancestor would collapse it,
+              // so the Map tab cross-fades while the others slide.
+              variants={
+                tab === 'map'
+                  ? { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } }
+                  : {
+                      enter: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * 28 }),
+                      center: { opacity: 1, x: 0, transitionEnd: { transform: 'none' } },
+                      exit: (d: number) => ({ opacity: 0, x: reduced ? 0 : d * -28 }),
+                    }
+              }
               initial="enter"
               animate="center"
               exit="exit"
@@ -125,6 +146,15 @@ export default function App() {
       </LayoutGroup>
       <SettingsSheet open={sheet === 'settings'} onClose={close} />
       <LocationSheet open={sheet === 'location'} onClose={close} />
+      <ClearNowSheet
+        open={clearNow}
+        onClose={() => setClearNow(false)}
+        onOpenCamera={(id) => {
+          setClearNow(false);
+          go('cameras');
+          setCamId(id);
+        }}
+      />
     </MotionConfig>
   );
 }

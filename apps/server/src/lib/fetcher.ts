@@ -33,6 +33,12 @@ export interface FetchResult<T> {
   stale: boolean;
 }
 
+export interface BinaryPayload {
+  bytes: Uint8Array;
+  contentType: string;
+  lastModified: string | null;
+}
+
 export class UpstreamError extends Error {
   constructor(public sourceId: string, message: string, public status?: number) {
     super(`${sourceId}: ${message}`);
@@ -127,16 +133,24 @@ export class Fetcher {
     }
   }
 
-  private async fetchOnce(def: SourceDef, url: string): Promise<unknown> {
+  private async fetchOnce(def: SourceDef, url: string, binary = false): Promise<unknown> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), def.timeoutMs);
     try {
       const res = await this.f(url, {
         signal: ctrl.signal,
-        headers: { 'User-Agent': this.opts.userAgent, Accept: 'application/json' },
+        headers: { 'User-Agent': this.opts.userAgent, Accept: binary ? 'image/*' : 'application/json' },
       });
       if (!res.ok) throw new UpstreamError(def.id, `HTTP ${res.status}`, res.status);
-      return await res.json();
+      if (binary) {
+        const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
+        if (!/^image\//.test(contentType)) throw new UpstreamError(def.id, `not an image (${contentType})`);
+        return { bytes: new Uint8Array(await res.arrayBuffer()), contentType, lastModified: res.headers.get('last-modified') } satisfies BinaryPayload;
+      }
+      // 204 No Content (e.g. IMO CAP with no active warnings) → null
+      if (res.status === 204) return null;
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
     } catch (e) {
       if (e instanceof UpstreamError) throw e;
       const msg = (e as Error)?.name === 'AbortError' ? `timeout after ${def.timeoutMs}ms` : (e as Error)?.message ?? String(e);
@@ -146,11 +160,11 @@ export class Fetcher {
     }
   }
 
-  private async fetchWithRetry(def: SourceDef, url: string): Promise<unknown> {
+  private async fetchWithRetry(def: SourceDef, url: string, binary = false): Promise<unknown> {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= this.opts.retries; attempt++) {
       try {
-        return await this.fetchOnce(def, url);
+        return await this.fetchOnce(def, url, binary);
       } catch (e) {
         lastErr = e;
         const status = e instanceof UpstreamError ? e.status : undefined;
@@ -166,7 +180,7 @@ export class Fetcher {
    * Get JSON from `url` for `sourceId`, parse it with `parse`, and cache the parsed value.
    * `cacheKey` defaults to the URL (use a snapped-coordinate key for location queries).
    */
-  async get<T>(sourceId: string, url: string, parse: (raw: unknown) => T, cacheKey = url): Promise<FetchResult<T>> {
+  async get<T>(sourceId: string, url: string, parse: (raw: unknown) => T, cacheKey = url, binary = false): Promise<FetchResult<T>> {
     const def = this.def(sourceId);
     const h = this.h(sourceId);
     const key = `${sourceId}:${cacheKey}`;
@@ -192,10 +206,10 @@ export class Fetcher {
       h.requests++;
       const t0 = this.now();
       try {
-        const raw = await this.fetchWithRetry(def, url);
+        const raw = await this.fetchWithRetry(def, url, binary);
         const value = parse(raw); // ParseError counts as a source failure too
         this.recordSuccess(sourceId, this.now() - t0);
-        const e = this.cache.set(key, value, def.ttlMs, def.staleMs);
+        const e = this.cache.set(key, value, this.ttlOverride.get(key) ?? def.ttlMs, def.staleMs);
         return { value, fetchedAt: new Date(e.fetchedAt).toISOString(), stale: false };
       } catch (err) {
         this.recordFailure(sourceId, err);
@@ -206,6 +220,14 @@ export class Fetcher {
     this.inflight.set(key, p as Promise<FetchResult<unknown>>);
     return p;
   }
+
+  /** Fetch an image (cached like JSON). */
+  getImage(sourceId: string, url: string, cacheKey = url, ttlOverrideMs?: number): Promise<FetchResult<BinaryPayload>> {
+    if (ttlOverrideMs !== undefined) this.ttlOverride.set(`${sourceId}:${cacheKey}`, ttlOverrideMs);
+    return this.get(sourceId, url, (raw) => raw as BinaryPayload, cacheKey, true);
+  }
+
+  private ttlOverride = new Map<string, number>();
 
   healthReport(): SourceHealth[] {
     return [...this.health.values()].map(({ openedAt: _o, ...rest }) => {

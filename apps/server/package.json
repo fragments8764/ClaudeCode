@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --external:hono --external:@hono/node-server --outfile=dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --external:hono --external:@hono/node-server --external:web-push --outfile=dist/index.js",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",
     "@nordurljos/core": "*",
-    "hono": "^4.9.0"
+    "hono": "^4.9.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/web-push": "^3.6.4",
     "esbuild": "^0.25.0",
     "tsx": "^4.20.0"
   }
