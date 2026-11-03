@@ -145,4 +145,9 @@ export interface SightingData {
   brightness: number;
   colors: string[];
   direction: string | null;
+  private?: boolean;
+  photoUrl?: string | null;
+  feed?: { credit: string } | null;
+  featured?: boolean;
+  verification?: { confidence: 'unverified' | 'low' | 'medium' | 'high'; verified: boolean; nearbyReports: number; reasons: string[] };
 }

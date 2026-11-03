@@ -10,7 +10,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera as CamIcon, Layers, LocateFixed, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { spring } from '../design/tokens';
-import { useCameras, useCloudGrid, useOvationGrid, useRoads, useRoute, useSightings, useSpots, useWarnings, useWeights } from '../lib/api';
+import { useCameras, useCloudGrid, useLiveSightings, useOvationGrid, useRoads, useRoute, useSightings, useSpots, useWarnings, useWeights } from '../lib/api';
+import { SightingDetailSheet } from '../sheets/CommunitySheets';
+import type { SightingData } from '../lib/types';
 import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { useReducedMotionPref, useSettings, type MapLayers } from '../lib/store';
@@ -34,7 +36,7 @@ const LAYER_LABELS: Record<keyof MapLayers, [string, string]> = {
   light: ['Light pollution', 'NASA VIIRS Black Marble'],
   spots: ['Dark-sky spots', 'Curated, with parking notes'],
   cams: ['Webcams', 'Live cameras across Iceland'],
-  sightings: ['Sightings', 'Community reports, last 6 h'],
+  sightings: ['Seeing it now', 'Community reports, fading over 60 min'],
   roads: ['Roads & warnings', 'Vegagerðin conditions, gusts, IMO warnings'],
 };
 const ROAD_COLORS = ['match', ['get', 'kind'], 'clear', '#4ade80', 'slippery', '#facc15', 'wind', '#a78bfa', 'closed', '#fb7185', '#64748b'] as unknown as string;
@@ -61,6 +63,9 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
   const spots = useSpots();
   const cams = useCameras();
   const sightings = useSightings();
+  const live = useLiveSightings();
+  const [seen, setSeen] = useState<SightingData | null>(null);
+  const liveMarkers = useRef<Marker[]>([]);
   const { weights } = useWeights();
   const roads = useRoads(mapLayers.roads);
   const warnings = useWarnings();
@@ -264,6 +269,31 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
     });
   }, [sightings.data, ready]);
 
+  // ── live "seeing it now": pulsing glass dots, fading over 60 min; tap for details ──
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    liveMarkers.current.forEach((mk) => mk.remove());
+    if (!mapLayers.sightings) {
+      liveMarkers.current = [];
+      return;
+    }
+    const nowMs = Date.now();
+    liveMarkers.current = (live.data?.data ?? []).map((sg) => {
+      const age = Math.min(60, (nowMs - Date.parse(sg.at)) / 60_000);
+      const el = document.createElement('button');
+      el.className = `map-live${sg.verification?.verified ? ' verified' : ''}`;
+      el.style.opacity = String(Math.max(0.25, 1 - age / 70));
+      el.setAttribute('aria-label', `Aurora seen ${Math.round(age)} minutes ago${sg.verification?.verified ? ', verified' : ''}`);
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        haptic('tap');
+        setSeen(sg);
+      });
+      return new maplibregl.Marker({ element: el }).setLngLat([sg.lon, sg.lat]).addTo(m);
+    });
+  }, [live.data, ready, mapLayers.sightings]);
+
   // ── spot markers (glass pins that pulse when clear & dark) ──
   useEffect(() => {
     const m = map.current;
@@ -434,6 +464,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
           flyTo(r.spot.lon, r.spot.lat, 9);
         }}
       />
+      <SightingDetailSheet s={seen} open={!!seen} onClose={() => setSeen(null)} />
       <SpotSheet r={picked} open={sheet === 'spot'} onClose={() => setSheet(null)} windowEnd={windowEnd} onPlan={onPlan} />
     </div>
   );

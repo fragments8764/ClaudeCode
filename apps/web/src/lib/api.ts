@@ -89,6 +89,8 @@ export const useSpots = () => usePersistedQuery<{ data: Spot[] }>('spots', '/api
 export const useCameras = () => usePersistedQuery<Envelope<Camera[]>>('cameras', '/api/cameras', 3 * 60_000);
 export const useNowcast = () => usePersistedQuery<Envelope<NowcastData>>('nowcast', '/api/nowcast', 2 * 60_000);
 export const useSightings = () => usePersistedQuery<{ data: SightingData[] }>('sightings', '/api/sightings?hours=6', 60_000);
+export const useLiveSightings = () => usePersistedQuery<{ data: SightingData[] }>('sightings-live', '/api/sightings?minutes=60', 60_000);
+export const useFeed = (enabled: boolean) => usePersistedQuery<{ data: SightingData[] }>('feed', '/api/feed', 10 * 60_000, enabled);
 export function useSafety(lat: number, lon: number, enabled = true) {
   return usePersistedQuery<Envelope<SafetyData>>(`safety:${snap(lat)},${snap(lon)}`, `/api/safety?lat=${snap(lat)}&lon=${snap(lon)}`, 10 * 60_000, enabled);
 }

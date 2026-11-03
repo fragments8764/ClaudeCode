@@ -9,6 +9,8 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'tool.feed': 'Weekly feed',
+  'tool.feed.sub': "This week's best aurora",
   'tool.checklist': "Tonight's checklist",
   'tool.checklist.sub': 'Weather-aware packing',
   'tool.driving': 'Driving mode',
@@ -101,6 +103,8 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'tool.feed': 'Vikulegt yfirlit',
+  'tool.feed.sub': 'Bestu norðurljós vikunnar',
   'tool.checklist': 'Gátlisti kvöldsins',
   'tool.checklist.sub': 'Pakkað eftir veðri',
   'tool.driving': 'Akstursstilling',
@@ -192,6 +196,8 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'tool.feed': 'Wochen-Feed',
+  'tool.feed.sub': 'Die schönsten Polarlichter der Woche',
   'tool.checklist': 'Checkliste für heute',
   'tool.checklist.sub': 'Packliste nach Wetter',
   'tool.driving': 'Fahrmodus',
@@ -283,6 +289,8 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'tool.feed': 'Fil de la semaine',
+  'tool.feed.sub': 'Les plus belles aurores de la semaine',
   'tool.checklist': 'Check-list du soir',
   'tool.checklist.sub': 'Selon la météo',
   'tool.driving': 'Mode conduite',
@@ -374,6 +382,8 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'tool.feed': '每周精选',
+  'tool.feed.sub': '本周最美极光',
   'tool.checklist': '今晚清单',
   'tool.checklist.sub': '按天气准备装备',
   'tool.driving': '驾驶模式',
@@ -465,6 +475,8 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'tool.feed': '今週のフィード',
+  'tool.feed.sub': '今週のベストオーロラ',
   'tool.checklist': '今夜のチェックリスト',
   'tool.checklist.sub': '天気に合わせた持ち物',
   'tool.driving': '運転モード',

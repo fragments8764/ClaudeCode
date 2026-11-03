@@ -3,6 +3,10 @@ import { Check, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { spring } from '../design/tokens';
 import { postOrQueue } from '../lib/outbox';
+import { postJson } from '../lib/api';
+import { thumbnail } from '../lib/idb';
+import { deleteMySighting, rememberSighting } from '../lib/mySightings';
+import { ImagePlus } from 'lucide-react';
 import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { badges, useJournal } from '../lib/journal';
@@ -47,6 +51,11 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
   const [colors, setColors] = useState<string[]>(['green']);
   const [dir, setDir] = useState('N');
   const [share, setShare] = useState(true);
+  const [priv, setPriv] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [toFeed, setToFeed] = useState(false);
+  const [credit, setCredit] = useState('');
+  const [posted, setPosted] = useState<string | null>(null);
   const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error' | 'queued'>('idle');
   const [newBadges, setNewBadges] = useState<string[]>([]);
 
@@ -68,7 +77,17 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
     const after = badges(useJournal.getState().entries).filter((b) => b.earned && !before.has(b.id));
     setNewBadges(after.map((b) => b.name));
     try {
-      const r = share ? await postOrQueue('/api/sightings', { lat: location.lat, lon: location.lon, brightness, colors, direction: dir, at: new Date().toISOString() }) : 'sent';
+      const body = { lat: location.lat, lon: location.lon, brightness, colors, direction: dir, at: new Date().toISOString(), private: priv, feed: photo && toFeed ? { consent: true, credit } : null };
+      let r: 'sent' | 'queued' = 'sent';
+      if (share && navigator.onLine) {
+        // online: post directly so we get the owner token (delete later) and can attach the photo
+        const res = await postJson<{ data: { id: string; token: string } }>('/api/sightings', body);
+        rememberSighting({ id: res.data.id, token: res.data.token, at: body.at, photo: !!photo });
+        if (photo) await postJson(`/api/sightings/${res.data.id}/photo`, { token: res.data.token, dataUrl: photo }).catch(() => {});
+        setPosted(res.data.id);
+      } else if (share) {
+        r = await postOrQueue('/api/sightings', { ...body, feed: null }); // photos need signal
+      }
       haptic('success');
       setState(r === 'queued' ? 'queued' : 'done');
     } catch {
@@ -112,6 +131,11 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
           <Press className="mx-auto mt-6 h-12 px-8" onClick={onClose}>
             Back to the sky
           </Press>
+          {posted && (
+            <button className="mx-auto mt-2 block min-h-[44px] text-[13px] text-ink-3 underline" onClick={() => deleteMySighting(posted).then(() => setPosted(null))}>
+              Delete my report
+            </button>
+          )}
         </motion.div>
       ) : (
         <>
@@ -143,10 +167,33 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
               ))}
             </div>
           </Section>
+          <Section title="Photo (optional)">
+            <label className="my-2 flex min-h-[48px] cursor-pointer items-center justify-center gap-2 rounded-full bg-[rgb(255_255_255/0.06)] text-[14px]">
+              <ImagePlus size={16} strokeWidth={1.5} aria-hidden /> {photo ? 'Photo added (location data removed)' : 'Add a photo'}
+              <input type="file" accept="image/*" className="sr-only" onChange={async (e) => e.target.files?.[0] && setPhoto(await thumbnail(e.target.files[0], 1280, 0.78))} />
+            </label>
+            {photo && (
+              <>
+                <label className="flex min-h-[48px] items-center gap-3 text-[14px] text-ink-2">
+                  <input type="checkbox" checked={toFeed} onChange={(e) => setToFeed(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--aurora-rgb))]" />
+                  Share in the weekly feed. You keep the copyright and let Norðurljós show it in the app; you can remove it any time.
+                </label>
+                {toFeed && (
+                  <input value={credit} onChange={(e) => setCredit(e.target.value)} maxLength={40} placeholder="Credit as (name or @handle)" aria-label="Photo credit" className="mb-2 h-12 w-full rounded-[var(--r-md)] bg-[rgb(255_255_255/0.07)] px-4 text-[16px] outline-none" />
+                )}
+              </>
+            )}
+          </Section>
           <label className="mt-4 flex min-h-[48px] items-center gap-3 text-[14px] text-ink-2">
             <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--aurora-rgb))]" />
             Share anonymously on the community map (location rounded to ~10 km, removed after 12 h)
           </label>
+          {share && (
+            <label className="flex min-h-[48px] items-center gap-3 text-[14px] text-ink-2">
+              <input type="checkbox" checked={priv} onChange={(e) => setPriv(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--aurora-rgb))]" />
+              This is a private spot: blur it to ~25 km
+            </label>
+          )}
           <Press variant="accent" hapticKind={false} onClick={submit} disabled={state === 'sending'} className="mb-8 mt-4 h-14 w-full text-[16px] font-medium">
             <Sparkles size={18} strokeWidth={1.75} aria-hidden /> {state === 'sending' ? 'Saving…' : 'Log it'}
           </Press>

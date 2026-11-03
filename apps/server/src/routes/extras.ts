@@ -29,6 +29,9 @@ import {
   fiveNightOutlook,
   parse27Day,
   parseOpenMeteo,
+  verifySighting,
+  feedRank,
+  type SightingSignals,
   type AlertPrefsLike,
   type AlertRule,
   type GroundMag,
@@ -38,7 +41,8 @@ import type { Fetcher, FetchResult } from '../lib/fetcher';
 import { FrameStore } from '../lib/frames';
 import { RateLimiter } from '../lib/ratelimit';
 import { openMeteoHost, openMeteoKey, type SourceId } from '../lib/sources';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { renderAdmin } from './admin';
 import { JsonStore } from '../lib/store';
@@ -131,6 +135,18 @@ export interface Sighting {
   brightness: number;
   colors: string[];
   direction: string | null;
+  /** sha-256 of the owner's delete token (token itself only lives on their device) */
+  ownerHash?: string;
+  /** fuzzed to ~25 km instead of ~10 km */
+  private?: boolean;
+  signals?: SightingSignals;
+  photo?: boolean;
+  /** weekly feed opt-in with the credit the user chose */
+  feed?: { credit: string } | null;
+  featured?: boolean;
+  /** hashed reporter IPs (abuse reports) */
+  reports?: string[];
+  hidden?: boolean;
 }
 
 export type SendPush = (sub: PushSub, payload: { title: string; body: string; url: string; tag: string }) => Promise<{ gone: boolean }>;
@@ -554,18 +570,50 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     return c.json({ data: r.data, meta: { generatedAt: now().toISOString(), sources: r.sources } });
   });
 
-  // ───────── Community sightings ─────────
+  // ───────── Community sightings: verified reports, moderation, photos, weekly feed ─────────
+  const sha = (x: string) => createHash('sha256').update(x).digest('hex');
+  const photoDir = ctx.dataDir ? join(ctx.dataDir, 'photos') : null;
+  const memPhotos = new Map<string, Buffer>();
+  const savePhoto = (id: string, buf: Buffer) => {
+    if (photoDir) {
+      mkdirSync(photoDir, { recursive: true });
+      writeFileSync(join(photoDir, `${id}.jpg`), buf);
+    } else memPhotos.set(id, buf);
+  };
+  const loadPhoto = (id: string): Buffer | null => {
+    if (!/^[a-z0-9]{6,16}$/.test(id)) return null;
+    if (!photoDir) return memPhotos.get(id) ?? null;
+    try {
+      return readFileSync(join(photoDir, `${id}.jpg`));
+    } catch {
+      return null;
+    }
+  };
+  const deletePhoto = (id: string) => {
+    if (photoDir) rmSync(join(photoDir, `${id}.jpg`), { force: true });
+    else memPhotos.delete(id);
+  };
+  /** Live reports expire after 12 h; photos shared to the weekly feed are kept 7 days. */
   const pruneSightings = () => {
-    const cutoff = now().getTime() - 12 * 3.6e6;
-    sightings.update((all) => all.filter((s) => new Date(s.at).getTime() >= cutoff));
+    const t = now().getTime();
+    const keep = (s: Sighting) => t - Date.parse(s.at) < (s.photo && s.feed ? 7 * 864e5 : 12 * 3.6e6);
+    for (const s of sightings.get()) if (!keep(s) && s.photo) deletePhoto(s.id);
+    sightings.update((all) => all.filter(keep));
+  };
+  const visible = () => sightings.get().filter((s) => !s.hidden);
+  const publicSighting = (s: Sighting, all: Sighting[]) => {
+    const { ownerHash: _o, reports: _r, hidden: _h, ...pub } = s;
+    return { ...pub, photoUrl: s.photo ? `/api/photos/${s.id}` : null, verification: verifySighting(s, all) };
   };
 
   app.get('/api/sightings', (c) => {
     pruneSightings();
+    const minutes = c.req.query('minutes') ? Math.min(720, Math.max(10, Number(c.req.query('minutes')))) : null;
     const hours = Math.min(12, Math.max(1, Number(c.req.query('hours') ?? 6)));
-    const cutoff = now().getTime() - hours * 3.6e6;
+    const cutoff = now().getTime() - (minutes ? minutes * 60_000 : hours * 3.6e6);
+    const all = visible();
     c.header('Cache-Control', 'public, max-age=30');
-    return c.json({ data: sightings.get().filter((s) => new Date(s.at).getTime() >= cutoff) });
+    return c.json({ data: all.filter((s) => Date.parse(s.at) >= cutoff).map((s) => publicSighting(s, all)) });
   });
 
   app.post('/api/sightings', async (c) => {
@@ -585,19 +633,125 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     // Reports queued offline carry their original time; accept it if it's within the last 6 h (no backdating beyond that).
     const claimed = typeof body?.at === 'string' ? Date.parse(body.at) : NaN;
     const at = Number.isFinite(claimed) && claimed <= now().getTime() + 60_000 && claimed >= now().getTime() - 6 * 3.6e6 ? new Date(claimed) : now();
+    const priv = body?.private === true;
+    // Signals at report time (best effort, never blocks the report for long)
+    const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+    const [nc, au] = await Promise.all([withTimeout(nowcast().catch(() => null), 4000), withTimeout(ctx.aurora(snapCoord(lat), snapCoord(lon)).catch(() => null), 4000)]);
+    const token = rid(16);
+    const credit = typeof body?.feed?.credit === 'string' ? body.feed.credit.trim().slice(0, 40) : '';
     const s: Sighting = {
-      id: Math.random().toString(36).slice(2, 10),
+      id: rid(5),
       at: at.toISOString(),
-      // ~10 km privacy rounding: nobody's exact position is ever stored or shown
-      lat: snapCoord(lat, 0.1),
-      lon: snapCoord(lon, 0.1),
+      // privacy rounding: ~10 km by default, ~25 km for private spots; nobody's exact position is stored or shown
+      lat: snapCoord(lat, priv ? 0.25 : 0.1),
+      lon: snapCoord(lon, priv ? 0.25 : 0.1),
       brightness,
       colors,
       direction,
+      ownerHash: sha(token),
+      private: priv,
+      signals: { oval: au?.data?.visible ?? null, nowcast: nc?.data.level ?? null, groundBay: nc?.data.groundBay ?? null },
+      photo: false,
+      feed: body?.feed && credit !== undefined && body.feed.consent === true ? { credit: credit || 'Anonymous' } : null,
+      reports: [],
+      hidden: false,
     };
     pruneSightings();
-    sightings.update((all) => [...all, s].slice(-2000));
-    return c.json({ data: s }, 201);
+    sightings.update((all) => [...all, s].slice(-5000));
+    return c.json({ data: { ...publicSighting(s, visible()), token } }, 201);
+  });
+
+  const owned = (id: string, token: unknown) => {
+    const s = sightings.get().find((x) => x.id === id);
+    return s && typeof token === 'string' && s.ownerHash === sha(token) ? s : null;
+  };
+
+  /** Attach a photo (JPEG, already resized + EXIF-stripped on the device). Owner only. */
+  app.post('/api/sightings/:id/photo', async (c) => {
+    if (!writeLimit.allow(`ph:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 650_000);
+    } catch {
+      return c.json({ error: 'photo too large (max ~450 KB)' }, 413);
+    }
+    const s = owned(c.req.param('id'), b?.token);
+    if (!s) return c.json({ error: 'not found' }, 404);
+    const m = typeof b?.dataUrl === 'string' ? b.dataUrl.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/) : null;
+    if (!m) return c.json({ error: 'JPEG data URL required' }, 400);
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length > 460_000 || buf[0] !== 0xff || buf[1] !== 0xd8) return c.json({ error: 'not a JPEG or too large' }, 400);
+    savePhoto(s.id, buf);
+    s.photo = true;
+    sightings.set([...sightings.get()]);
+    return c.json({ data: publicSighting(s, visible()) });
+  });
+
+  app.get('/api/photos/:id', (c) => {
+    const s = sightings.get().find((x) => x.id === c.req.param('id'));
+    const buf = s && !s.hidden && s.photo ? loadPhoto(s.id) : null;
+    if (!buf) return c.json({ error: 'not found' }, 404);
+    return new Response(buf as unknown as BodyInit, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=3600' } });
+  });
+
+  /** Owner removes their report (and photo) — "remove photos on request". */
+  app.post('/api/sightings/:id/delete', async (c) => {
+    let b: any;
+    try {
+      b = await readJson(c, 1024);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const s = owned(c.req.param('id'), b?.token);
+    if (!s) return c.json({ error: 'not found' }, 404);
+    if (b?.photoOnly === true) s.photo = false;
+    deletePhoto(s.id);
+    sightings.update((all) => (b?.photoOnly === true ? [...all] : all.filter((x) => x.id !== s.id)));
+    return c.json({ data: { ok: true } });
+  });
+
+  /** Report abuse: hidden after 3 different reporters (reviewed on /admin). */
+  app.post('/api/sightings/:id/report', (c) => {
+    if (!writeLimit.allow(`rp:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    const s = sightings.get().find((x) => x.id === c.req.param('id'));
+    if (!s) return c.json({ error: 'not found' }, 404);
+    const who = sha(`${clientIp(c)}|nl`).slice(0, 16);
+    s.reports = [...new Set([...(s.reports ?? []), who])];
+    if (s.reports.length >= 3) s.hidden = true;
+    sightings.set([...sightings.get()]);
+    return c.json({ data: { ok: true } });
+  });
+
+  /** Weekly feed: opted-in photos from the last 7 days, credited, verified first. */
+  app.get('/api/feed', (c) => {
+    pruneSightings();
+    const all = visible();
+    const t = now();
+    const items = all
+      .filter((s) => s.photo && s.feed && t.getTime() - Date.parse(s.at) < 7 * 864e5)
+      .map((s) => publicSighting(s, all))
+      .map((s) => ({ ...s, rank: feedRank({ at: s.at, brightness: s.brightness, verified: s.verification.verified, featured: s.featured }, t) }))
+      .sort((a, b) => b.rank - a.rank)
+      .slice(0, 30);
+    c.header('Cache-Control', 'public, max-age=300');
+    return c.json({ data: items });
+  });
+
+  // Moderation (ADMIN_TOKEN): list, delete, feature
+  app.get('/api/admin/sightings', (c) => (authed(c) ? c.json({ data: sightings.get().filter((s) => s.photo || (s.reports?.length ?? 0) > 0).map((s) => ({ ...publicSighting(s, sightings.get()), reports: s.reports?.length ?? 0, hidden: !!s.hidden, featured: !!s.featured })) }) : c.json({ error: 'not found' }, 404)));
+  app.post('/api/admin/sightings/:id/:action', (c) => {
+    if (!authed(c)) return c.json({ error: 'not found' }, 404);
+    const s = sightings.get().find((x) => x.id === c.req.param('id'));
+    if (!s) return c.json({ error: 'not found' }, 404);
+    const a = c.req.param('action');
+    if (a === 'delete') {
+      deletePhoto(s.id);
+      sightings.update((all) => all.filter((x) => x.id !== s.id));
+    } else if (a === 'feature' || a === 'unfeature') s.featured = a === 'feature';
+    else if (a === 'unhide') (s.hidden = false), (s.reports = []);
+    else return c.json({ error: 'unknown action' }, 400);
+    sightings.set([...sightings.get()]);
+    return c.json({ data: { ok: true } });
   });
 
   // ───────── Score validation: outcomes ("did you see it?") ─────────
@@ -633,8 +787,9 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   });
 
   // ───────── Internal validation dashboard (ADMIN_TOKEN) ─────────
-  const authed = (c: { req: { query: (k: string) => string | undefined; header: (k: string) => string | undefined } }) =>
-    !!ctx.adminToken && (c.req.query('token') === ctx.adminToken || c.req.header('authorization') === `Bearer ${ctx.adminToken}`);
+  function authed(c: { req: { query: (k: string) => string | undefined; header: (k: string) => string | undefined } }) {
+    return !!ctx.adminToken && (c.req.query('token') === ctx.adminToken || c.req.header('authorization') === `Bearer ${ctx.adminToken}`);
+  }
   function validationReport() {
     const os = outcomes.get().filter((o) => o.predicted != null);
     let backtest: unknown = null;

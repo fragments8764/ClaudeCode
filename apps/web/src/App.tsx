@@ -15,6 +15,7 @@ import { GapSheet } from './sheets/GapSheet';
 import { OutlookSheet } from './sheets/OutlookSheet';
 import { useCloudGaps } from './lib/gaps';
 import { ChecklistSheet } from './sheets/ChecklistSheet';
+import { FeedSheet } from './sheets/CommunitySheets';
 import { DrivingMode } from './screens/Driving';
 import { speak } from './lib/voice';
 import { useNowcast } from './lib/api';
@@ -411,6 +412,7 @@ export default function App() {
       <GapSheet gaps={gaps} open={tool === 'gaps'} onClose={closeTool} darkFrom={c.plan.darkStart} darkUntil={c.plan.darkEnd} />
       <OutlookSheet open={tool === 'outlook'} onClose={closeTool} />
       <ChecklistSheet c={c} open={tool === 'checklist'} onClose={closeTool} />
+      <FeedSheet open={tool === 'feed'} onClose={closeTool} />
       <DrivingMode c={c} open={!!driving} auto={driving === 'auto'} gap={gaps[0]} onClose={() => setDriving(null)} />
       <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />
       <Suspense fallback={null}>
