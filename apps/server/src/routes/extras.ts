@@ -40,7 +40,7 @@ import type { CameraDef, ConfigLoader } from '../lib/config';
 import type { Fetcher, FetchResult } from '../lib/fetcher';
 import { FrameStore } from '../lib/frames';
 import { RateLimiter } from '../lib/ratelimit';
-import { openMeteoHost, openMeteoKey, type SourceId } from '../lib/sources';
+import { openMeteoHost, openMeteoKey, PROVIDER_TERMS, SOURCES, type SourceId } from '../lib/sources';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -193,6 +193,11 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   const outcomes = new JsonStore<OutcomeEntry[]>(ctx.dataDir, 'outcomes', []);
   const lastLogged = new Map<string, number>();
   const plans = new JsonStore<TripPlan[]>(ctx.dataDir, 'plans', []);
+  /** Opt-in analytics: anonymous daily counts per event (no IP, no IDs, no locations). */
+  const telemetry = new JsonStore<Record<string, Record<string, number>>>(ctx.dataDir, 'telemetry', {});
+  /** Opt-in crash reports: message, trimmed stack, app version, browser family, hour. */
+  const crashes = new JsonStore<{ at: string; message: string; stack: string; version: string; browser: string }[]>(ctx.dataDir, 'crashes', []);
+  const feature = (name: string) => config.features()[name]?.enabled !== false;
   const rid = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
 
   /** Log a computed score (deduplicated per ~10 km cell per 15 min). */
@@ -469,6 +474,57 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     plans.set([...plans.get()]);
     return n;
   }
+
+  // ───────── Sources & credits, feature flags ─────────
+  app.get('/api/sources', (c) => {
+    const byProvider = new Map<string, { provider: string; feeds: { id: string; name: string; attribution: string; homepage: string }[] }>();
+    for (const s of Object.values(SOURCES) as { id: string; name: string; attribution: string; homepage: string; provider?: string }[]) {
+      const p = s.provider ?? s.name;
+      if (!byProvider.has(p)) byProvider.set(p, { provider: p, feeds: [] });
+      byProvider.get(p)!.feeds.push({ id: s.id, name: s.name, attribution: s.attribution, homepage: s.homepage });
+    }
+    const providers = [...byProvider.values()].map((p) => ({ ...p, ...(PROVIDER_TERMS[p.provider] ?? {}) }));
+    for (const extra of ['OpenFreeMap', 'NASA GIBS', 'NASA OMNI2 (backtest only)']) providers.push({ provider: extra, feeds: [], ...PROVIDER_TERMS[extra]! });
+    const cameras = config.cameras().map((c) => ({ id: c.id, name: c.name, attribution: c.attribution, pageUrl: c.pageUrl, embed: c.embed, terms: (c as { terms?: string }).terms ?? null }));
+    c.header('Cache-Control', 'public, max-age=3600');
+    return c.json({ data: { providers, cameras } });
+  });
+
+  app.get('/api/features', (c) => c.json({ data: config.features() }));
+
+  // ───────── Opt-in analytics & crash reports (privacy-friendly) ─────────
+  const EVENT = /^[a-z][a-z0-9_.:-]{1,40}$/;
+  app.post('/api/telemetry', async (c) => {
+    if (!writeLimit.allow(`tm:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 4096);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const events: unknown[] = Array.isArray(b?.events) ? b.events.slice(0, 50) : [];
+    const day = now().toISOString().slice(0, 10);
+    telemetry.update((all) => {
+      const d = { ...(all[day] ?? {}) };
+      for (const e of events) if (typeof e === 'string' && EVENT.test(e)) d[e] = (d[e] ?? 0) + 1;
+      const days = Object.keys({ ...all, [day]: d }).sort().slice(-90);
+      return Object.fromEntries(days.map((k) => [k, k === day ? d : all[k]!]));
+    });
+    return c.json({ data: { ok: true } });
+  });
+  app.post('/api/crash', async (c) => {
+    if (!writeLimit.allow(`cr:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 6144);
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400);
+    }
+    const clean = (x: unknown, n: number) => String(x ?? '').replace(/https?:\/\/[^\s)]+/g, (u) => u.split('?')[0]!).slice(0, n);
+    crashes.update((all) => [...all, { at: now().toISOString().slice(0, 13) + ':00Z', message: clean(b?.message, 300), stack: clean(b?.stack, 2000), version: clean(b?.version, 20), browser: clean(b?.browser, 20) }].slice(-500));
+    return c.json({ data: { ok: true } });
+  });
+  app.get('/api/admin/telemetry', (c) => (authed(c) ? c.json({ data: { events: telemetry.get(), crashes: crashes.get().slice(-50).reverse() } }) : c.json({ error: 'not found' }, 404)));
 
   // ───────── 5-night outlook ─────────
   app.get('/api/outlook', async (c) => {
@@ -926,7 +982,9 @@ export function registerExtras(app: Hono, ctx: Ctx) {
           sub.lastAsked = lastNight;
         }
       }
-      for (const m of msgs) {
+      // feature flags: advanced alert rules can be switched off (future pro tier)
+      const allowed = msgs.filter((m) => (m.rule === 'score' || m.rule === 'kp-forecast' ? feature('alerts.basic') : feature('alerts.advanced')));
+      for (const m of allowed) {
         try {
           const isFeedback = m.tag.startsWith('feedback-');
           const r = await ctx.sendPush(sub, { title: m.title, body: m.body, url: isFeedback ? `/#/feedback?night=${m.tag.slice(9)}` : '/#/tonight', tag: m.tag });
@@ -946,9 +1004,9 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     captureFrames,
     runAlerts,
     logScore,
-    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush(), plans.flush()),
+    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush(), plans.flush(), telemetry.flush(), crashes.flush()),
     checkPlans,
-    stores: { subs, sightings, scoreLog, outcomes, plans },
+    stores: { subs, sightings, scoreLog, outcomes, plans, telemetry, crashes },
     frames,
   };
 }

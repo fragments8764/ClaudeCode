@@ -17,6 +17,7 @@ import { ageText, staleSources } from '../lib/staleness';
 import { useActivePlan } from '../sheets/PlanSheet';
 import { contextualTip, dismissTip } from '../lib/tips';
 import { useCloudGaps } from '../lib/gaps';
+import { useFeatures } from '../lib/features';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
 import { PullToRefresh } from '../ui/PullToRefresh';
@@ -68,7 +69,8 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
   const plan = useActivePlan();
   const { gaps } = useCloudGaps(c.now);
   const localCloudy = (DEMO?.cloud ?? cd?.effective ?? 0) > 40;
-  const gap = localCloudy && !c.plan.noDarkness ? gaps[0] : undefined;
+  const feat = useFeatures();
+  const gap = feat('route.extras') && localCloudy && !c.plan.noDarkness ? gaps[0] : undefined;
   const planOverdue = plan && c.now.getTime() > new Date(plan.returnBy).getTime();
   const [tipTick, setTipTick] = useState(0);
   const w = c.clouds.data?.data.weather;

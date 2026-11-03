@@ -18,6 +18,33 @@ export interface SourceDef {
   provider?: string;
 }
 
+/**
+ * Licences & terms per provider (Sources & credits screen). Reviewed 2026-11-03 — re-check before a
+ * commercial launch; notes flag anything that needs a decision.
+ */
+export const PROVIDER_TERMS: Record<string, { license: string; terms: string; url: string; flag?: string }> = {
+  'NOAA SWPC': { license: 'US Government work, public domain', terms: 'Free to use; please credit NOAA SWPC. Be gentle with request rates.', url: 'https://www.swpc.noaa.gov/' },
+  'Open-Meteo': {
+    license: 'Data CC BY 4.0',
+    terms: 'Free API is non-commercial only, ~10 000 calls/day per IP. Commercial use needs a paid API key (set OPEN_METEO_API_KEY).',
+    url: 'https://open-meteo.com/en/terms',
+    flag: 'Needs a paid key for commercial launch; shared IPs hit the free daily limit.',
+  },
+  'MET Norway': { license: 'CC BY 4.0 (NLOD)', terms: 'Identify your app in the User-Agent, respect caching headers, attribute MET Norway.', url: 'https://api.met.no/doc/TermsOfService' },
+  'Icelandic Met Office': { license: 'Open data, attribution to Veðurstofa Íslands', terms: 'Attribute the Icelandic Met Office; confirm terms for commercial use.', url: 'https://en.vedur.is/' },
+  'Vegagerðin (road.is)': { license: 'Open data feed (gagnaveita)', terms: 'Attribute Vegagerðin. Road camera images are not offered via an open API, so we link to umferdin.is.', url: 'https://umferdin.is/' },
+  INTERMAGNET: {
+    license: 'INTERMAGNET conditions of use',
+    terms: 'Acknowledge INTERMAGNET and the observatory institute (DTU Space for NAQ, SGU for ABK). Commercial use requires the institute’s permission.',
+    url: 'https://intermagnet.org/data_conditions.html',
+    flag: 'Ask DTU Space / SGU before a commercial launch.',
+  },
+  Cameras: { license: 'Per camera', terms: 'Each camera lists its owner and terms; images are embedded only with permission, otherwise we link to the operator.', url: '' },
+  OpenFreeMap: { license: '© OpenMapTiles © OpenStreetMap contributors (ODbL)', terms: 'Free, no key; attribution required. Consider a donation or self-hosting at scale.', url: 'https://openfreemap.org/' },
+  'NASA GIBS': { license: 'NASA open data', terms: 'Free to use with credit to NASA EOSDIS GIBS / VIIRS.', url: 'https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api' },
+  'NASA OMNI2 (backtest only)': { license: 'NASA open data', terms: 'Credit NASA/GSFC Space Physics Data Facility OMNIWeb.', url: 'https://omniweb.gsfc.nasa.gov/' },
+};
+
 const MIN = 60_000;
 
 /** Open-Meteo: free API (non-commercial, ~10k calls/day/IP) or the paid customer API when a key is set. */

@@ -17,6 +17,7 @@ import type { Conditions } from '../lib/conditions';
 import { haptic } from '../lib/haptics';
 import { useReducedMotionPref, useSettings, type MapLayers } from '../lib/store';
 import { nightGeoJSON, renderClouds, renderOvation } from '../map/render';
+import { preciseOnce } from '../hooks/useGeolocation';
 import { TimeScrubber } from '../map/TimeScrubber';
 import { BestSpotSheet, SpotSheet } from '../sheets/SpotSheets';
 import { Press } from '../ui/Button';
@@ -407,7 +408,17 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
         <Press aria-label="Map layers" onClick={() => setSheet('layers')} className="w-12">
           <Layers size={18} strokeWidth={1.5} aria-hidden />
         </Press>
-        <Press aria-label="Fly to my location" onClick={() => flyTo(location.lon, location.lat, 8)} className="w-12">
+        <Press
+          aria-label="Fly to my location"
+          onClick={async () => {
+            // precise only when needed: one in-memory GPS fix for the map, never stored
+            const p = await preciseOnce();
+            const at = p ?? location;
+            markers.current.me?.setLngLat([at.lon, at.lat]);
+            flyTo(at.lon, at.lat, p ? 10 : 8);
+          }}
+          className="w-12"
+        >
           <LocateFixed size={18} strokeWidth={1.5} aria-hidden />
         </Press>
       </div>

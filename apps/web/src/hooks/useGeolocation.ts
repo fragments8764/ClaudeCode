@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { haversineKm, ICELAND_PLACES } from '@nordurljos/core';
+import { haversineKm, ICELAND_PLACES, snapCoord } from '@nordurljos/core';
 import { useSettings } from '../lib/store';
 
 export type GeoStatus = 'idle' | 'locating' | 'ok' | 'denied' | 'unavailable' | 'error';
@@ -35,8 +35,12 @@ export function useGeolocation() {
     setError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude: lat, longitude: lon, accuracy } = pos.coords;
-        setLocation({ lat, lon, accuracy, label: labelFor(lat, lon), source: 'gps', at: new Date().toISOString() });
+        const { latitude, longitude, accuracy } = pos.coords;
+        // Privacy: keep only an approximate position (~5 km) unless the user chose precise location.
+        const precise = useSettings.getState().preciseLocation;
+        const lat = precise ? latitude : snapCoord(latitude, 0.05);
+        const lon = precise ? longitude : snapCoord(longitude, 0.05);
+        setLocation({ lat, lon, accuracy: precise ? accuracy : Math.max(accuracy, 3000), label: labelFor(latitude, longitude), source: 'gps', at: new Date().toISOString() });
         setStatus('ok');
       },
       (err) => {
@@ -67,4 +71,16 @@ export function useGeolocation() {
   }, [locate]);
 
   return { status, error, locate };
+}
+
+/** One-off precise fix kept in memory only (map "fly to me"); never stored. */
+export function preciseOnce(): Promise<{ lat: number; lon: number } | null> {
+  return new Promise((res) => {
+    if (!('geolocation' in navigator)) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => res({ lat: p.coords.latitude, lon: p.coords.longitude }),
+      () => res(null),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
+    );
+  });
 }

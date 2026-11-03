@@ -26,12 +26,12 @@ const TOOLS: { id: ToolId; icon: LucideIcon; title: string; sub: string; accent?
   { id: 'health', icon: Activity, title: 'tool.health', sub: 'tool.health.sub' },
 ];
 
-export function ToolsSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (t: ToolId) => void }) {
+export function ToolsSheet({ open, onClose, onPick, isEnabled = () => true }: { open: boolean; onClose: () => void; onPick: (t: ToolId) => void; isEnabled?: (t: ToolId) => boolean }) {
   const t = useT();
   return (
     <Sheet open={open} onClose={onClose} title={t('tools.title')} initial="full" detents={['half', 'full']}>
       <motion.ul className="grid grid-cols-2 gap-3 pb-8" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: STAGGER / 2 } } }}>
-        {TOOLS.map(({ id, icon: Icon, title, sub, accent }) => (
+        {TOOLS.filter((x) => isEnabled(x.id)).map(({ id, icon: Icon, title, sub, accent }) => (
           <motion.li key={id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: spring } }} className={accent ? 'col-span-2' : ''}>
             <motion.button
               whileTap={{ scale: 0.96 }}

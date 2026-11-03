@@ -1,3 +1,4 @@
+import { track } from '../lib/telemetry';
 import { formatAge } from '@nordurljos/core';
 import { CloudDownload } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -19,6 +20,7 @@ export function PrepareSheet({ open, onClose }: { open: boolean; onClose: () => 
     setResult(null);
     try {
       const r = await prepareForTonight(location, pinnedRadiusKm, setStep, abort.current.signal);
+      track('prepare.run');
       set('lastPrepared', { at: new Date().toISOString(), label: location.label, radiusKm: pinnedRadiusKm });
       setResult(r.failed ? `Done. ${r.requests - r.failed} of ${r.requests} items saved (some sources were unavailable).` : `Done. ${r.requests} items saved for offline use.`);
     } finally {

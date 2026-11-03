@@ -1,3 +1,4 @@
+import { track } from './telemetry';
 import { getJson, postJson } from './api';
 import { useSettings } from './store';
 
@@ -34,6 +35,7 @@ export async function enablePush(): Promise<void> {
   const { data } = await getJson<{ data: { publicKey: string } }>('/api/push/key');
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(data.publicKey) }));
   await syncPush(sub);
+  track('alerts.enabled');
 }
 
 /** Re-send location / thresholds (call when they change). */

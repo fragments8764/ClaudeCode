@@ -1,3 +1,4 @@
+import { track } from '../lib/telemetry';
 import { Check, MapPin, Share2, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { hhmm } from '../lib/format';
@@ -125,6 +126,7 @@ export function PlanSheet({
               try {
                 const p = await createPlan({ name, destination: dest, returnBy, shareLocation: shareLoc });
                 haptic('success');
+                track('plan.shared');
                 await send(p);
               } catch (e) {
                 setMsg(`Couldn’t create the plan: ${(e as Error).message}`);

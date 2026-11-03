@@ -4,6 +4,7 @@ import { Car, Compass, MapPin, ParkingCircle, Share2, ShieldCheck, Sparkles, Sta
 import { useState } from 'react';
 import { spring } from '../design/tokens';
 import { useRoute, useSafety } from '../lib/api';
+import { useFeatures } from '../lib/features';
 import { hhmm } from '../lib/format';
 import { isApple, shareText } from '../lib/share';
 import { useSettings } from '../lib/store';
@@ -35,7 +36,9 @@ const SEG_LABEL = { clear: 'clear', slippery: 'slippery / ice', wind: 'gusts ≥
 /** Colour-coded road corridor from you to the spot (Vegagerðin stations along the way). */
 export function RouteCorridor({ r }: { r: RankedSpot }) {
   const from = useSettings((s) => s.location);
-  const q = useRoute(from, r.spot);
+  const enabled = useFeatures()('route.extras');
+  const q = useRoute(from, enabled ? r.spot : null);
+  if (!enabled) return null;
   const c = q.data?.data;
   const typeWarn = roadTypeWarning(r.spot.roadType, c?.segments.map((x) => x.condition).join(' '));
   return (

@@ -1,0 +1,15 @@
+{
+  "$comment": "Feature flags for a future free / pro split. Everything is enabled today; no paywalls. Flip 'enabled' to switch a feature off globally; 'tier' documents where it would sit.",
+  "features": {
+    "score": { "tier": "free", "enabled": true, "description": "Aurora Score, verdict, Tonight screen" },
+    "map": { "tier": "free", "enabled": true, "description": "Live map, layers, time scrubber" },
+    "cameras": { "tier": "free", "enabled": true, "description": "Camera wall, Is it clear?" },
+    "alerts.basic": { "tier": "free", "enabled": true, "description": "Score and Kp-forecast push alerts" },
+    "alerts.advanced": { "tier": "pro", "enabled": true, "description": "Bz-south, substorm and cloud-gap alerts" },
+    "route.extras": { "tier": "pro", "enabled": true, "description": "Cloud-gap hunter, road corridor, best-spot route list" },
+    "multi-region": { "tier": "pro", "enabled": true, "description": "Pinned regions / offline field mode beyond one area" },
+    "outlook.5night": { "tier": "free", "enabled": true, "description": "5-night outlook" },
+    "community": { "tier": "free", "enabled": true, "description": "Sightings, live layer, weekly feed" },
+    "tour-guide": { "tier": "pro", "enabled": false, "description": "Shareable 'tonight's plan' page for guides (not built yet)" }
+  }
+}

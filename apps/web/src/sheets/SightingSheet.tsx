@@ -1,3 +1,4 @@
+import { track } from '../lib/telemetry';
 import { motion } from 'motion/react';
 import { Check, Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -89,6 +90,7 @@ export function SightingSheet({ c, open, onClose }: { c: Conditions; open: boole
         r = await postOrQueue('/api/sightings', { ...body, feed: null }); // photos need signal
       }
       haptic('success');
+      track('sighting.logged');
       setState(r === 'queued' ? 'queued' : 'done');
     } catch {
       setState('error');

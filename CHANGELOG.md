@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.0 — Addendum Tiers 1–6 (2026-11-03)
+
+### Tier 1 — Reliability
+- Data health sheet: every source as ok / stale / down / idle with age vs expected refresh; stale and offline badges on numbers.
+- Score validation loop: score log, morning "Did you see it?" push, `/admin` calibration dashboard, `npm run backtest` on real OMNI2 nights (storm avg 77 vs quiet 14 under clear skies; see `docs/backtest.md`).
+- Score weights moved to versioned `config/score-weights.json`.
+- Offline field mode: "Prepare for tonight" caches data + tiles around you; reports queue in an outbox and send when back online.
+
+### Tier 2 — Safety
+- Road-condition and IMO warning layers on the map; route corridor hazards (warnings, gusts ≥ 15 m/s, gravel roads).
+- Shareable trip plans with live location, check-in, and an overdue push; context safety tips.
+
+### Tier 3 — Smarter forecasting
+- Cloud-gap hunter: where and when it clears within your drive limit, with leave-by and head-back times.
+- 5-night outlook from NOAA 3-day + 27-day outlook and Open-Meteo 6-day cloud.
+- Personal limits: max drive, darkness threshold, camera vs naked eye, favourite spots.
+
+### Tier 4 — Field tools
+- Tonight's checklist, battery saver, driving mode (auto-detect, large type, optional spoken alerts), photo shot log with suggestions.
+
+### Tier 5 — Community
+- Verified sightings (≥ 2 nearby reports), optional photo, private sightings, report/hide moderation and admin review, live map layer, weekly feed.
+
+### Tier 6 — Product basics & quality
+- Approximate location by default with precise-once; export / delete my data; opt-in analytics and crash reports.
+- Sources & credits sheet with each provider's terms; server-side feature flags (`config/features.json`).
+- Rarely used sheets lazy-loaded on first open (first-load JS 196 KB gzip).
+- Quality: 168 tests (parsers on recorded fixtures, scoring, cloud gaps, corridor, poor-signal/offline); axe 0 violations on all new sheets; Android Chrome emulation on slow 3G.
+
+### Changed
+- All-sky cameras from UiT, SGO/Sodankylä and AuroraMAX are now link-out only (terms require permission for public display).
+- Open-Meteo: optional `OPEN_METEO_API_KEY` (paid host) for commercial use.
+
 ## 1.0.0 — All phases complete (2026-11-03)
 
 ### Phase 3 — Map

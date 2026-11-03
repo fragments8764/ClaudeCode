@@ -7,16 +7,10 @@ import { useConditions } from './lib/conditions';
 import { haptic } from './lib/haptics';
 import { useT } from './lib/i18n';
 import { startOutbox } from './lib/outbox';
-import { FeedbackSheet, recordNight } from './sheets/FeedbackSheet';
-import { HealthSheet } from './sheets/HealthSheet';
-import { PrepareSheet } from './sheets/PrepareSheet';
-import { PlanSheet } from './sheets/PlanSheet';
-import { GapSheet } from './sheets/GapSheet';
-import { OutlookSheet } from './sheets/OutlookSheet';
+import { recordNight } from './sheets/FeedbackSheet';
 import { useCloudGaps } from './lib/gaps';
-import { ChecklistSheet } from './sheets/ChecklistSheet';
-import { FeedSheet } from './sheets/CommunitySheets';
-import { DrivingMode } from './screens/Driving';
+import { startTelemetry, track } from './lib/telemetry';
+import { useFeatures } from './lib/features';
 import { speak } from './lib/voice';
 import { useNowcast } from './lib/api';
 import { PlanViewer } from './screens/PlanViewer';
@@ -51,7 +45,29 @@ const loaders = {
   planner: () => import('./sheets/PlannerSheet'),
   ambient: () => import('./screens/Ambient'),
   settings: () => import('./sheets/SettingsSheet'),
+  health: () => import('./sheets/HealthSheet'),
+  prepare: () => import('./sheets/PrepareSheet'),
+  plan: () => import('./sheets/PlanSheet'),
+  gaps: () => import('./sheets/GapSheet'),
+  outlook: () => import('./sheets/OutlookSheet'),
+  checklist: () => import('./sheets/ChecklistSheet'),
+  driving: () => import('./screens/Driving'),
+  feed: () => import('./sheets/CommunitySheets'),
+  privacy: () => import('./sheets/PrivacySheet'),
+  sources: () => import('./sheets/SourcesSheet'),
+  feedback: () => import('./sheets/FeedbackSheet'),
 };
+const HealthSheet = lazy(() => loaders.health().then((m) => ({ default: m.HealthSheet })));
+const PrepareSheet = lazy(() => loaders.prepare().then((m) => ({ default: m.PrepareSheet })));
+const PlanSheet = lazy(() => loaders.plan().then((m) => ({ default: m.PlanSheet })));
+const GapSheet = lazy(() => loaders.gaps().then((m) => ({ default: m.GapSheet })));
+const OutlookSheet = lazy(() => loaders.outlook().then((m) => ({ default: m.OutlookSheet })));
+const ChecklistSheet = lazy(() => loaders.checklist().then((m) => ({ default: m.ChecklistSheet })));
+const DrivingMode = lazy(() => loaders.driving().then((m) => ({ default: m.DrivingMode })));
+const FeedSheet = lazy(() => loaders.feed().then((m) => ({ default: m.FeedSheet })));
+const PrivacySheet = lazy(() => loaders.privacy().then((m) => ({ default: m.PrivacySheet })));
+const SourcesSheet = lazy(() => loaders.sources().then((m) => ({ default: m.SourcesSheet })));
+const FeedbackSheet = lazy(() => loaders.feedback().then((m) => ({ default: m.FeedbackSheet })));
 const PhotoSheet = lazy(() => loaders.photo().then((m) => ({ default: m.PhotoSheet })));
 const ArCompass = lazy(() => loaders.ar().then((m) => ({ default: m.ArCompass })));
 const JournalSheet = lazy(() => loaders.journal().then((m) => ({ default: m.JournalSheet })));
@@ -109,16 +125,17 @@ export default function App() {
   const [mapIntent, setMapIntent] = useState<'best' | null>(null);
   const [onbStep, setOnbStep] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
-
   // offline outbox (queued sightings / feedback) replays when signal returns
   useEffect(() => startOutbox(), []);
+  // opt-in analytics & crash reports (no-ops unless enabled in Privacy)
+  useEffect(() => startTelemetry(), []);
+  useEffect(() => track(`tab.${tab}`), [tab]);
+  const has = useFeatures();
   // opt-in live location for an active shared plan
   useEffect(() => startLiveLocation(), []);
   const { gaps } = useCloudGaps(c.now);
 
   // ── Driving mode: manual, or automatic from GPS speed (only if location permission is already granted) ──
-  const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
   useEffect(() => {
     if (!autoDriving || !('geolocation' in navigator)) return;
     let watch: number | null = null;
@@ -168,7 +185,6 @@ export default function App() {
     else if (s && p.score != null && s.score - p.score >= 15) speak(`Aurora chances jumped to ${s.score}.`);
     spokenPrev.current = { verdict: s?.verdict, level: lvl, score: s?.score };
   }, [c.score, nowcast.data, c.sw.data]);
-  const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
   const openPlan = (r?: RankedSpot | null) => {
     const end = c.best?.end ?? c.plan.darkEnd;
     const ret = r && end ? new Date(new Date(end).getTime() + r.driveMin * 60_000).toISOString() : end;
@@ -191,16 +207,21 @@ export default function App() {
 
   // Lazy sheets mount on first open and stay mounted so their exit animations still play.
   const [mounted, setMounted] = useState<Set<string>>(() => new Set());
+  const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
+  const [extra, setExtra] = useState<'privacy' | 'sources' | null>(null);
+  const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
+  const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
   useEffect(() => {
-    const k = tool ?? (sheet === 'settings' ? 'settings' : null);
-    if (k && !mounted.has(k)) setMounted((m) => new Set(m).add(k));
-  }, [tool, sheet, mounted]);
+    const want = [tool, sheet === 'settings' ? 'settings' : null, planFor ? 'plan' : null, extra, driving ? 'driving' : null, feedbackNight ? 'feedback' : null].filter((x): x is string => !!x);
+    const missing = want.filter((k) => !mounted.has(k));
+    if (missing.length) setMounted((m) => new Set([...m, ...missing]));
+  }, [tool, sheet, planFor, extra, driving, feedbackNight, mounted]);
   useEffect(() => {
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2500));
     const id = setTimeout(() => idle(() => Object.values(loaders).forEach((l) => l().catch(() => {}))), 4000);
     return () => clearTimeout(id);
   }, []);
-  const has = (k: string) => mounted.has(k);
+  const hasMounted = (k: string) => mounted.has(k);
 
   useEffect(() => applyPrefs({ nightVision, reduceTransparency, lowPower }), [nightVision, reduceTransparency, lowPower]);
   useTilt(!reduced && !lowPower);
@@ -265,6 +286,7 @@ export default function App() {
 
   const pickTool = (id: ToolId) => {
     haptic('tap');
+    track(`tool.${id}`);
     if (id === 'saver') {
       setTool(null);
       setPref('batterySaver', !batterySaver);
@@ -393,9 +415,28 @@ export default function App() {
 
       {showOnb && <Onboarding step={onbStep} setStep={setOnbStep} onDone={() => setOnbStep(0)} />}
 
-      <Suspense fallback={null}>{has('settings') && <SettingsSheet open={sheet === 'settings'} onClose={close} />}</Suspense>
+      <Suspense fallback={null}>
+        {hasMounted('settings') && (
+          <SettingsSheet
+            open={sheet === 'settings'}
+            onClose={close}
+            onOpen={(w) => {
+              setSheet(null);
+              if (w === 'health') setTool('health');
+              else setExtra(w);
+            }}
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={null}>{hasMounted('privacy') && <PrivacySheet open={extra === 'privacy'} onClose={() => setExtra(null)} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('sources') && <SourcesSheet open={extra === 'sources'} onClose={() => setExtra(null)} />}</Suspense>
       <LocationSheet open={sheet === 'location'} onClose={close} />
-      <ToolsSheet open={sheet === 'tools'} onClose={close} onPick={(id) => (setSheet(null), pickTool(id))} />
+      <ToolsSheet
+        open={sheet === 'tools'}
+        onClose={close}
+        onPick={(id) => (setSheet(null), pickTool(id))}
+        isEnabled={(id) => (id === 'gaps' ? has('route.extras') : id === 'feed' || id === 'sighting' ? has('community') : id === 'outlook' ? has('outlook.5night') : id === 'prepare' ? has('multi-region') : true)}
+      />
       <ClearNowSheet
         open={clearNow}
         onClose={() => setClearNow(false)}
@@ -406,18 +447,18 @@ export default function App() {
         }}
       />
       <SafetySheet c={c} open={tool === 'safety'} onClose={closeTool} onPlan={() => (setTool(null), openPlan(null))} />
-      <PlanSheet open={!!planFor} onClose={() => setPlanFor(null)} destination={planFor?.dest ?? null} suggestedReturn={planFor?.ret ?? null} />
-      <HealthSheet c={c} open={tool === 'health'} onClose={closeTool} />
-      <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />
-      <GapSheet gaps={gaps} open={tool === 'gaps'} onClose={closeTool} darkFrom={c.plan.darkStart} darkUntil={c.plan.darkEnd} />
-      <OutlookSheet open={tool === 'outlook'} onClose={closeTool} />
-      <ChecklistSheet c={c} open={tool === 'checklist'} onClose={closeTool} />
-      <FeedSheet open={tool === 'feed'} onClose={closeTool} />
-      <DrivingMode c={c} open={!!driving} auto={driving === 'auto'} gap={gaps[0]} onClose={() => setDriving(null)} />
-      <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />
+      <Suspense fallback={null}>{hasMounted('plan') && <PlanSheet open={!!planFor} onClose={() => setPlanFor(null)} destination={planFor?.dest ?? null} suggestedReturn={planFor?.ret ?? null} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('health') && <HealthSheet c={c} open={tool === 'health'} onClose={closeTool} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('prepare') && <PrepareSheet open={tool === 'prepare'} onClose={closeTool} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('gaps') && <GapSheet gaps={gaps} open={tool === 'gaps'} onClose={closeTool} darkFrom={c.plan.darkStart} darkUntil={c.plan.darkEnd} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('outlook') && <OutlookSheet open={tool === 'outlook'} onClose={closeTool} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('checklist') && <ChecklistSheet c={c} open={tool === 'checklist'} onClose={closeTool} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('feed') && <FeedSheet open={tool === 'feed'} onClose={closeTool} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('driving') && <DrivingMode c={c} open={!!driving} auto={driving === 'auto'} gap={gaps[0]} onClose={() => setDriving(null)} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('feedback') && <FeedbackSheet night={feedbackNight} open={!!feedbackNight} onClose={() => setFeedbackNight(null)} />}</Suspense>
       <Suspense fallback={null}>
-        {has('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}
-        {has('planner') && (
+        {hasMounted('sighting') && <SightingSheet c={c} open={tool === 'sighting'} onClose={closeTool} />}
+        {hasMounted('planner') && (
           <PlannerSheet
             c={c}
             open={tool === 'planner'}
@@ -429,11 +470,11 @@ export default function App() {
             }}
           />
         )}
-        {has('photo') && <PhotoSheet c={c} open={tool === 'photo'} onClose={closeTool} />}
-        {has('journal') && <JournalSheet c={c} open={tool === 'journal'} onClose={closeTool} onPostcard={() => shareTonight(true).catch(() => {})} />}
-        {has('learn') && <LearnSheet open={tool === 'learn'} onClose={closeTool} />}
-        {has('ar') && <ArCompass c={c} open={tool === 'ar'} onClose={closeTool} />}
-        {has('ambient') && <Ambient c={c} open={tool === 'ambient'} onClose={closeTool} />}
+        {hasMounted('photo') && <PhotoSheet c={c} open={tool === 'photo'} onClose={closeTool} />}
+        {hasMounted('journal') && <JournalSheet c={c} open={tool === 'journal'} onClose={closeTool} onPostcard={() => shareTonight(true).catch(() => {})} />}
+        {hasMounted('learn') && <LearnSheet open={tool === 'learn'} onClose={closeTool} />}
+        {hasMounted('ar') && <ArCompass c={c} open={tool === 'ar'} onClose={closeTool} />}
+        {hasMounted('ambient') && <Ambient c={c} open={tool === 'ambient'} onClose={closeTool} />}
       </Suspense>
     </MotionConfig>
   );

@@ -50,7 +50,7 @@ function DataSources() {
   );
 }
 
-export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen?: (what: 'privacy' | 'sources' | 'health') => void }) {
   const s = useSettings();
   return (
     <Sheet open={open} onClose={onClose} title="Settings" initial="full" detents={['half', 'full']}>
@@ -132,6 +132,24 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
 
       <Section title="Offline">
         <OfflineMap />
+      </Section>
+
+      <Section title="Privacy & data">
+        {(
+          [
+            ['privacy', 'Privacy', 'What we keep, export or delete your data'],
+            ['sources', 'Sources & credits', 'Every data provider and camera owner'],
+            ['health', 'Data health', 'Live status of every source'],
+          ] as const
+        ).map(([k, label, hint]) => (
+          <button key={k} onClick={() => onOpen?.(k)} className="flex min-h-[56px] w-full items-center justify-between py-2 text-left">
+            <span>
+              <span className="block text-[15px] font-medium">{label}</span>
+              <span className="block text-[13px] text-ink-3">{hint}</span>
+            </span>
+            <span className="text-ink-3" aria-hidden>›</span>
+          </button>
+        ))}
       </Section>
 
       <Section title="Data sources">

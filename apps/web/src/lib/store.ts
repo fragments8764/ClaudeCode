@@ -63,6 +63,12 @@ export interface Prefs {
   radiusKm: number;
   favorites: string[];
   onboarded: boolean;
+  /** privacy: store an approximate (~5 km) location unless the user opts in to precise */
+  preciseLocation: boolean;
+  /** opt-in, anonymous usage counts */
+  analytics: boolean;
+  /** opt-in crash reports */
+  crashReports: boolean;
   /** one-tap battery saver: red-only, dimmed, static sky, slower refresh, paused camera feeds */
   batterySaver: boolean;
   /** spoken alerts while the app is open */
@@ -104,6 +110,9 @@ export const DEFAULT_PREFS: Prefs = {
   radiusKm: 120,
   favorites: [],
   onboarded: false,
+  preciseLocation: false,
+  analytics: false,
+  crashReports: false,
   batterySaver: false,
   spokenAlerts: false,
   autoDriving: true,
