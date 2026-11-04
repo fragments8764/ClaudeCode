@@ -103,7 +103,7 @@ export function SpaceScreen({ c }: { c: Conditions }) {
 
       <motion.p variants={item} className="on-sky px-1 pt-2 text-[12px] leading-relaxed text-ink-3">
         {d?.solarWind.spacecraft ? `Measured by ${d.solarWind.spacecraft} at L1, ~1.5 million km sunward — about 30–60 min before it reaches Earth. ` : ''}
-        Data: NOAA Space Weather Prediction Center. Flares, CMEs and the 27-day outlook arrive in a later build.
+        Data: NOAA Space Weather Prediction Center..
       </motion.p>
     </motion.div>
   );

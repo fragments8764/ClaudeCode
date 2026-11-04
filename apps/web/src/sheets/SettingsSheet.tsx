@@ -82,7 +82,7 @@ export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClos
         />
         <Toggle label="I'm bringing a camera" hint="Adds tripod & batteries to the checklist and keeps Photographer mode handy" checked={s.hasCamera} onChange={(v) => s.set('hasCamera', v)} />
         <p className="pb-2 text-[12px] text-ink-3">
-          {s.favoriteSpots.length} favourite spot{s.favoriteSpots.length === 1 ? '' : 's'} (star them on the map). Used to rank spots, find cloud gaps and tune alerts, and stored only on this device.
+          {s.favoriteSpots.length ? `${s.favoriteSpots.length} favourite spot${s.favoriteSpots.length === 1 ? '' : 's'}.` : 'No favourite spots yet. Star one on the map.'} These shape spot picks, cloud gaps and alerts, and stay on this phone.
         </p>
       </Section>
 

@@ -15,6 +15,7 @@ export function TimeScrubber({
   max,
   value,
   onChange,
+  onScrub,
   now,
   bars,
   dark,
@@ -23,6 +24,8 @@ export function TimeScrubber({
   max: number;
   value: number;
   onChange: (h: number) => void;
+  /** true while a finger/mouse is dragging the thumb (lets the map skip cross-fades) */
+  onScrub?: (active: boolean) => void;
   now: Date;
   /** cloud % for each hour offset from min..max (null = unknown) */
   bars: (number | null)[];
@@ -35,11 +38,26 @@ export function TimeScrubber({
   const span = max - min;
   const pos = (h: number) => (h - min) / span;
 
+  // While dragging, the thumb follows the finger exactly; it only springs to the snapped
+  // hour when the value changes some other way (play, keys, "Now") or on release.
+  // (Bug fix: the spring used to fire on every hour crossed mid-drag and fight the finger.)
+  const dragging = useRef(false);
+  const last = useRef(value);
+  last.current = dragging.current ? last.current : value;
+  const snap = () => animate(x, pos(last.current) * (track.current?.clientWidth ?? 0), springSnappy);
   useEffect(() => {
-    const w = track.current?.clientWidth ?? 0;
-    animate(x, pos(value) * w, springSnappy);
+    if (!dragging.current) snap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, min, max]);
+  // keep the thumb in place when the track resizes (rotation, sheet open)
+  useEffect(() => {
+    const el = track.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => !dragging.current && x.set(pos(last.current) * el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [min, max]);
 
   useEffect(() => {
     if (!playing) return;
@@ -52,10 +70,19 @@ export function TimeScrubber({
     const f = Math.max(0, Math.min(1, (cx - r.left) / r.width));
     x.set(f * r.width); // follow the finger…
     const h = Math.round(min + f * span); // …but snap the value
-    if (h !== value) {
+    // compare with the last value we emitted, not the (possibly not yet re-rendered) prop,
+    // so fast drags never send the same hour twice or double-tick the haptic
+    if (h !== last.current) {
+      last.current = h;
       haptic('tick');
       onChange(h);
     }
+  };
+  const endDrag = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    onScrub?.(false);
+    snap();
   };
 
   const t = new Date(Math.floor(now.getTime() / 3.6e6) * 3.6e6 + value * 3.6e6);
@@ -95,12 +122,16 @@ export function TimeScrubber({
         aria-valuetext={label}
         className="relative h-11 touch-none select-none"
         onPointerDown={(e) => {
-          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          dragging.current = true;
+          onScrub?.(true);
           setPlaying(false);
           fromClientX(e.clientX);
         }}
-        onPointerMove={(e) => e.buttons && fromClientX(e.clientX)}
-        onPointerUp={() => animate(x, pos(value) * (track.current?.clientWidth ?? 0), springSnappy)}
+        onPointerMove={(e) => dragging.current && fromClientX(e.clientX)}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight' || e.key === 'ArrowUp') onChange(Math.min(max, value + 1));
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') onChange(Math.max(min, value - 1));

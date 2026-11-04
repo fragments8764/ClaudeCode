@@ -149,7 +149,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
       m.addLayer({ id: 'ovation', type: 'raster', source: 'ovation', paint: { 'raster-opacity': 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, firstSymbol);
       for (const k of ['a', 'b'] as const) {
         m.addSource(`clouds-${k}`, { type: 'image', url: empty.url, coordinates: empty.coords });
-        m.addLayer({ id: `clouds-${k}`, type: 'raster', source: `clouds-${k}`, paint: { 'raster-opacity': 0, 'raster-opacity-transition': { duration: reduced ? 0 : 450 }, 'raster-fade-duration': 0 } }, firstSymbol);
+        m.addLayer({ id: `clouds-${k}`, type: 'raster', source: `clouds-${k}`, paint: { 'raster-opacity': 0, 'raster-opacity-transition': { duration: reduced ? 0 : 450 }, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, firstSymbol);
       }
       m.addSource('warnings', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'warnings', type: 'fill', source: 'warnings', paint: { 'fill-color': ['match', ['get', 'severity'], 'Severe', '#fb7185', 'Extreme', '#fb7185', '#facc15'] as unknown as string, 'fill-opacity': 0.16 } }, firstSymbol);
@@ -204,20 +204,74 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
     const m = map.current;
     const o = ovg.data?.data;
     if (!m || !ready || !o) return;
-    const r = renderOvation(o, nightVision);
-    (m.getSource('ovation') as ImageSource).updateImage({ url: r.url, coordinates: r.coords });
+    let cancelled = false;
+    let url = '';
+    void renderOvation(o, nightVision).then((r) => {
+      url = r.url;
+      if (!cancelled && map.current) (map.current.getSource('ovation') as ImageSource).updateImage({ url: r.url, coordinates: r.coords });
+    });
+    return () => {
+      cancelled = true;
+      // revoke once MapLibre has had time to decode it
+      if (url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
   }, [ovg.data, ready, nightVision]);
 
   // ── cloud mist (crossfade between hours) ──
+  // Each hour's mist is rendered once and cached (pre-rendered in idle time). While the
+  // scrubber is being dragged we swap the visible image in place, at most once per frame,
+  // instead of starting a 450 ms cross-fade per hour crossed (that stacked up and flickered).
+  const scrubbing = useRef(false);
+  const cloudCache = useRef<{ g: unknown; night: boolean; imgs: Map<number, ReturnType<typeof renderClouds>> }>({ g: null, night: false, imgs: new Map() });
+  const cloudWanted = useRef(-1);
+  const cloudImg = (i: number) => {
+    const cc = cloudCache.current;
+    if (cc.g !== g || cc.night !== nightVision) {
+      cc.imgs.forEach((p) => p.then((r) => r.url.startsWith('blob:') && URL.revokeObjectURL(r.url)).catch(() => {}));
+      cloudCache.current = { g, night: nightVision, imgs: new Map() };
+    }
+    let r = cloudCache.current.imgs.get(i);
+    if (!r) cloudCache.current.imgs.set(i, (r = renderClouds(g!, i, nightVision)));
+    return r;
+  };
+  useEffect(() => {
+    if (!g) return;
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 50));
+    let i = 0;
+    let stop = false;
+    const n = Math.min(g.times.length, 72);
+    const step = () => {
+      if (stop || i >= n) return;
+      void cloudImg(i++).then(() => idle(step));
+    };
+    idle(step);
+    return () => void (stop = true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [g, nightVision]);
+  const cloudRaf = useRef(0);
   useEffect(() => {
     const m = map.current;
     if (!m || !ready || !g) return;
-    const next = cloudFlip.current === 'a' ? 'b' : 'a';
-    const r = renderClouds(g, ti, nightVision);
-    (m.getSource(`clouds-${next}`) as ImageSource).updateImage({ url: r.url, coordinates: r.coords });
-    m.setPaintProperty(`clouds-${next}`, 'raster-opacity', 1);
-    m.setPaintProperty(`clouds-${cloudFlip.current}`, 'raster-opacity', 0);
-    cloudFlip.current = next;
+    cancelAnimationFrame(cloudRaf.current);
+    cloudWanted.current = ti;
+    cloudRaf.current = requestAnimationFrame(async () => {
+      const r = await cloudImg(ti);
+      if (cloudWanted.current !== ti || !map.current) return; // a newer hour was requested meanwhile
+      if (scrubbing.current) {
+        const cur = cloudFlip.current;
+        (m.getSource(`clouds-${cur}`) as ImageSource).updateImage({ url: r.url, coordinates: r.coords });
+        m.setPaintProperty(`clouds-${cur}`, 'raster-opacity', 1);
+        m.setPaintProperty(`clouds-${cur === 'a' ? 'b' : 'a'}`, 'raster-opacity', 0);
+        return;
+      }
+      const next = cloudFlip.current === 'a' ? 'b' : 'a';
+      (m.getSource(`clouds-${next}`) as ImageSource).updateImage({ url: r.url, coordinates: r.coords });
+      m.setPaintProperty(`clouds-${next}`, 'raster-opacity', 1);
+      m.setPaintProperty(`clouds-${cloudFlip.current}`, 'raster-opacity', 0);
+      cloudFlip.current = next;
+    });
+    return () => cancelAnimationFrame(cloudRaf.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g, ti, ready, nightVision]);
 
   // ── darkness / terminator at scrub time ──
@@ -450,7 +504,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
 
       {/* scrubber */}
       <motion.div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] mx-auto max-w-md px-4" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={spring}>
-        <TimeScrubber min={minH} max={maxH} value={offset} onChange={setOffset} now={c.now} bars={bars} dark={darkBars} />
+        <TimeScrubber min={minH} max={maxH} value={offset} onChange={setOffset} onScrub={(v) => (scrubbing.current = v)} now={c.now} bars={bars} dark={darkBars} />
       </motion.div>
 
       <Sheet open={sheet === 'layers'} onClose={() => setSheet(null)} title="Layers" initial="half" detents={['half', 'full']}>

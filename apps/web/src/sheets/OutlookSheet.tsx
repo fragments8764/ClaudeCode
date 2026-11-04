@@ -49,11 +49,11 @@ export function OutlookSheet({ open, onClose }: { open: boolean; onClose: () => 
                     <span key={j} className="flex-1 rounded-t-[2px] bg-[rgb(255_255_255/0.22)]" style={{ height: `${Math.max(6, c ?? 0)}%` }} />
                   ))}
                 </div>
-                <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-3">
-                  <span className="flex items-center gap-1">
-                    <Moon size={12} strokeWidth={1.75} aria-hidden /> moon {n.moon.label === 'none' ? 'not a factor' : `${n.moon.label} impact`} ({Math.round(n.moon.illumination * 100)}%)
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-3">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <Moon size={12} strokeWidth={1.75} aria-hidden /> {n.moon.label === 'none' ? 'Moon: no effect' : `Moon: ${n.moon.label} effect`} ({Math.round(n.moon.illumination * 100)}%)
                   </span>
-                  {n.kpSource === '27-day' && <span>· Kp from NOAA 27-day outlook (rough)</span>}
+                  {n.kpSource === '27-day' && <span className="whitespace-nowrap">Rough Kp (27-day outlook)</span>}
                 </div>
               </Glass>
             </motion.li>

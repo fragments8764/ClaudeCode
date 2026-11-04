@@ -29,7 +29,9 @@ describe('cloud-gap hunter', () => {
     expect(new Date(g.leaveAt).getTime()).toBeGreaterThanOrEqual(now.getTime());
     expect(new Date(g.backAt).getTime()).toBeGreaterThan(new Date(g.clearUntil).getTime());
     expect(g.hours).toBeGreaterThanOrEqual(2);
-    expect(g.summary).toMatch(/^Clearing near Vík at 22:00\. \dh \d\dm drive\. Leave now\.$/);
+    expect(g.summary).toMatch(/^Clearing near Vík at 22:00\. \d h \d\d min drive\. Leave now\.$/);
+    // durations use non-breaking spaces so "3 h 12 min" never wraps mid-way (regression: text crowding)
+    expect(g.summary).not.toMatch(/\d [hm]/);
   });
   it('skips a gap that closes before you could get there', () => {
     const short = { ...grid, values: grid.values.map((r, i) => (new Date(grid.times[i]!).getUTCHours() === 22 ? r : r.map(() => 95))) };
@@ -45,7 +47,7 @@ describe('cloud-gap hunter', () => {
     const clear = { ...grid, values: grid.values.map((r) => r.map(() => 5)) };
     const g = findCloudGaps({ from: RVK, now: new Date('2026-11-02T20:00:00Z'), grid: clear, spots: [spot('near', 64.2, -21.5)] })[0]!;
     expect(g.confidence).toBe('high');
-    expect(g.summary).toMatch(/^Clear near near now\. \d+ min drive\. Leave now\.$/);
+    expect(g.summary).toMatch(/^Clear near near now\. \d+ min drive\. Leave now\.$/);
   });
 });
 

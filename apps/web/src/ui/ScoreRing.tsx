@@ -94,7 +94,7 @@ export function ScoreRing({ score, size = 264, night = false, celebrate = 0 }: {
         {score === null ? (
           <div className="skeleton mx-auto h-16 w-28" />
         ) : (
-          <div className="font-display text-[88px] font-extralight leading-none tracking-tight tabular-nums" aria-hidden>
+          <div className="font-display font-extralight leading-none tracking-tight tabular-nums" style={{ fontSize: Math.round(size / 3) }} aria-hidden>
             {shown}
           </div>
         )}

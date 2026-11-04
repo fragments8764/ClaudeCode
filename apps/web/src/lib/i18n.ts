@@ -9,6 +9,9 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'tools.g.plan': 'Plan tonight',
+  'tools.g.field': 'Out in the field',
+  'tools.g.more': 'Share, learn & status',
   'update.done': 'Updated to v{v}',
   'update.check': 'Check for updates',
   'update.current': 'Up to date',
@@ -111,6 +114,9 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'tools.g.plan': 'Skipuleggðu kvöldið',
+  'tools.g.field': 'Úti á vettvangi',
+  'tools.g.more': 'Deila, læra og staða',
   'update.done': 'Uppfært í v{v}',
   'update.check': 'Leita að uppfærslum',
   'update.current': 'Nýjasta útgáfa',
@@ -212,6 +218,9 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'tools.g.plan': 'Heute planen',
+  'tools.g.field': 'Unterwegs',
+  'tools.g.more': 'Teilen, lernen & Status',
   'update.done': 'Aktualisiert auf v{v}',
   'update.check': 'Nach Updates suchen',
   'update.current': 'Aktuell',
@@ -313,6 +322,9 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'tools.g.plan': 'Préparer la nuit',
+  'tools.g.field': 'Sur le terrain',
+  'tools.g.more': 'Partager, apprendre & état',
   'update.done': 'Mis à jour en v{v}',
   'update.check': 'Rechercher des mises à jour',
   'update.current': 'À jour',
@@ -414,6 +426,9 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'tools.g.plan': '规划今晚',
+  'tools.g.field': '户外实用',
+  'tools.g.more': '分享、学习与状态',
   'update.done': '已更新至 v{v}',
   'update.check': '检查更新',
   'update.current': '已是最新',
@@ -515,6 +530,9 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'tools.g.plan': '今夜の計画',
+  'tools.g.field': '現地で',
+  'tools.g.more': '共有・学ぶ・状態',
   'update.done': 'v{v} に更新しました',
   'update.check': 'アップデートを確認',
   'update.current': '最新です',

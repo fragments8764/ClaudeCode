@@ -48,6 +48,15 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
 
   // "Go now" celebration when the verdict crosses into go
   const [celebrate, setCelebrate] = useState(0);
+  // Short phones (iPhone SE/mini): shrink the hero so the verdict, pills and next card fit above the tab bar.
+  const [vh, setVh] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const on = () => setVh(window.innerHeight);
+    addEventListener('resize', on);
+    return () => removeEventListener('resize', on);
+  }, []);
+  const short = vh < 760;
+  const ringSize = vh < 700 ? 196 : short ? 228 : 264;
   const prev = useRef(s?.verdict);
   useEffect(() => {
     if (s?.verdict === 'go' && prev.current && prev.current !== 'go') {
@@ -131,11 +140,11 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
         )}
 
         {/* Hero */}
-        <div className="flex flex-1 flex-col items-center justify-center py-6">
+        <div className={`flex flex-1 flex-col items-center justify-center ${short ? 'py-3' : 'py-6'}`}>
           <motion.div variants={item}>
-            <ScoreRing score={s?.score ?? null} night={night} celebrate={celebrate} />
+            <ScoreRing score={s?.score ?? null} size={ringSize} night={night} celebrate={celebrate} />
           </motion.div>
-          <motion.h1 variants={item} className="on-sky mt-6 text-center font-display text-[30px] font-light leading-tight" aria-live="polite">
+          <motion.h1 variants={item} className={`on-sky text-center font-display font-light leading-tight ${short ? 'mt-4 text-[27px]' : 'mt-6 text-[30px]'}`} aria-live="polite">
             {s ? t(`verdict.${s.verdict}`) : ' '}
           </motion.h1>
           <motion.p variants={item} className="on-sky mt-1 text-center text-[15px] text-ink-2">

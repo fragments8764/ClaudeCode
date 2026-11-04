@@ -22,14 +22,14 @@ function blurInto(src: HTMLCanvasElement, px: number): HTMLCanvasElement {
   const out = document.createElement('canvas');
   out.width = src.width;
   out.height = src.height;
-  const ctx = out.getContext('2d')!;
+  const ctx = out.getContext('2d', { willReadFrequently: true })!;
   ctx.filter = `blur(${px}px)`;
   ctx.drawImage(src, 0, 0);
   return out;
 }
 
 /** OVATION as a soft glow: transparent → green → violet/magenta for strong values. */
-export function renderOvation(g: OvationGridData, night: boolean): { url: string; coords: Quad } {
+export async function renderOvation(g: OvationGridData, night: boolean): Promise<{ url: string; coords: Quad }> {
   const W = 720;
   const H = 300;
   const c = document.createElement('canvas');
@@ -70,22 +70,25 @@ export function renderOvation(g: OvationGridData, night: boolean): { url: string
     }
   }
   ctx.putImageData(img, 0, 0);
-  return { url: blurInto(c, 3).toDataURL('image/png'), coords: quad(-180, g.latMax, 180, g.latMin) };
+  const out = blurInto(c, 3);
+  const blob = await new Promise<Blob | null>((res) => out.toBlob(res, 'image/png'));
+  return { url: blob ? URL.createObjectURL(blob) : out.toDataURL('image/png'), coords: quad(-180, g.latMax, 180, g.latMin) };
 }
 
 /** Cloud cover as translucent mist over the grid's bbox for one hour index. */
-export function renderClouds(grid: ValueGrid, ti: number, night: boolean): { url: string; coords: Quad } {
+/**
+ * Cloud mist for one forecast hour. Drawn small (the Open-Meteo grid is ~0.5° anyway) and
+ * left to MapLibre's linear resampling to soften — no canvas blur filter — then encoded
+ * with toBlob, which runs off the main thread. Returns an object URL; revoke when done.
+ * (Perf fix: the old 240×180 blur + toDataURL took ~280 ms per hour on a throttled phone
+ * and was the main cause of the scrubber glitch.)
+ */
+export function cloudPixels(grid: ValueGrid, ti: number, night: boolean, W = 96, H = 72): ImageData {
   const w = grid.lons[0]!;
   const e = grid.lons[grid.lons.length - 1]!;
   const s = grid.lats[0]!;
   const n = grid.lats[grid.lats.length - 1]!;
-  const W = 240;
-  const H = 180;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const ctx = c.getContext('2d')!;
-  const img = ctx.createImageData(W, H);
+  const img = new ImageData(W, H);
   const yN = mercY(n);
   const yS = mercY(s);
   const col = night ? [110, 18, 18] : [176, 188, 206];
@@ -98,11 +101,29 @@ export function renderClouds(grid: ValueGrid, ti: number, night: boolean): { url
       // feather the outer 12 % so the grid's edge never shows as a hard rectangle
       const edge = Math.min(x, W - 1 - x, y, H - 1 - y) / (Math.min(W, H) * 0.12);
       const a = Math.pow(v / 100, 1.6) * 0.42 * Math.min(1, edge); // translucent mist: the map stays readable under full overcast
-      img.data.set([col[0]!, col[1]!, col[2]!, Math.round(255 * a)], (y * W + x) * 4);
+      const o = (y * W + x) * 4;
+      img.data[o] = col[0]!;
+      img.data[o + 1] = col[1]!;
+      img.data[o + 2] = col[2]!;
+      img.data[o + 3] = Math.round(255 * a);
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return { url: blurInto(c, 2).toDataURL('image/png'), coords: quad(w, n, e, s) };
+  return img;
+}
+
+export function cloudCoords(grid: ValueGrid): Quad {
+  return quad(grid.lons[0]!, grid.lats[grid.lats.length - 1]!, grid.lons[grid.lons.length - 1]!, grid.lats[0]!);
+}
+
+export async function renderClouds(grid: ValueGrid, ti: number, night: boolean): Promise<{ url: string; coords: Quad }> {
+  const img = cloudPixels(grid, ti, night);
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  // CPU-backed canvas: encoding never waits on a GPU busy drawing the sky and the map
+  c.getContext('2d', { willReadFrequently: true })!.putImageData(img, 0, 0);
+  const blob = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/png'));
+  return { url: blob ? URL.createObjectURL(blob) : c.toDataURL('image/png'), coords: cloudCoords(grid) };
 }
 
 /** Night side (sun below altDeg) as a GeoJSON polygon. */

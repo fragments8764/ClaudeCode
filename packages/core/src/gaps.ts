@@ -27,7 +27,7 @@ export interface Gap {
   cloud: number;
   hours: number;
   confidence: 'high' | 'medium' | 'low';
-  /** one-line summary, e.g. "Clearing near Vík at 23:10. 1h 40m drive. Leave in 20 min." */
+  /** one-line summary, e.g. "Clearing near Vík at 23:10. 1 h 40 min drive. Leave in 20 min." */
   summary: string;
 }
 
@@ -45,7 +45,8 @@ export interface GapOptions {
   fmt?: (iso: string) => string;
 }
 
-const hm = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m` : `${min} min`);
+/** "1 h 05 min" / "40 min" with non-breaking spaces so a duration never wraps mid-way */
+const hm = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}\u00a0h\u00a0${String(min % 60).padStart(2, '0')}\u00a0min` : `${min}\u00a0min`);
 const defaultFmt = (iso: string) => iso.slice(11, 16);
 
 export function findCloudGaps(o: GapOptions): Gap[] {

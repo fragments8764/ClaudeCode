@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { spring } from '../design/tokens';
 import { useRoute, useSafety } from '../lib/api';
 import { useFeatures } from '../lib/features';
-import { hhmm } from '../lib/format';
+import { duration, hhmm } from '../lib/format';
 import { isApple, shareText } from '../lib/share';
 import { useSettings } from '../lib/store';
 import { Press } from '../ui/Button';
@@ -216,7 +216,7 @@ export function SpotSheet({ r, open, onClose, windowEnd, onPlan }: { r: RankedSp
           <div className="grid grid-cols-3 gap-2 text-center">
             <Stat k="Score" v={String(r.score)} tone={scoreTone(r.score)} />
             <Stat k="Cloud" v={r.cloud == null ? '—' : `${r.cloud}%`} tone={r.cloud != null && r.cloud <= 30 ? 'text-good' : undefined} />
-            <Stat k="Drive" v={`${r.driveMin} min`} />
+            <Stat k="Drive" v={duration(r.driveMin)} />
           </div>
           <TripActions r={r} windowEnd={windowEnd} onPlan={onPlan} />
           <RouteCorridor r={r} />
@@ -283,7 +283,7 @@ export function BestSpotSheet({
               <div className={`font-display text-3xl font-light tabular-nums ${scoreTone(best.score)}`}>{best.score}</div>
             </div>
             <div className="text-[14px] text-ink-2">
-              {best.cloud == null ? 'cloud ?' : `${best.cloud}% cloud`} · {best.distanceKm} km · ~{best.driveMin} min drive
+              {best.cloud == null ? 'cloud ?' : `${best.cloud}% cloud`} · {best.distanceKm} km · ~{duration(best.driveMin)} drive
             </div>
           </motion.button>
           <TripActions r={best} windowEnd={windowEnd} onPlan={onPlan} />
@@ -297,7 +297,7 @@ export function BestSpotSheet({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium">{r.spot.name}</span>
                     <span className="block text-[13px] text-ink-3">
-                      {r.cloud == null ? '?' : `${r.cloud}%`} cloud · {r.distanceKm} km · ~{r.driveMin} min
+                      {r.cloud == null ? '?' : `${r.cloud}%`} cloud · {r.distanceKm} km · ~{duration(r.driveMin)}
                     </span>
                   </span>
                   <span className={`font-display text-xl font-light tabular-nums ${scoreTone(r.score)}`}>{r.score}</span>

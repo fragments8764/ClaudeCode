@@ -28,6 +28,16 @@ body {
   font-feature-settings: 'tnum' 1, 'cv11' 1;
   margin: 0;
 }
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p,
+li,
+dd {
+  text-wrap: pretty;
+}
 button {
   font: inherit;
   color: inherit;

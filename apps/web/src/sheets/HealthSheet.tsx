@@ -8,7 +8,14 @@ import { Sheet } from '../ui/Sheet';
 import { StatHeader } from '../ui/StatPill';
 
 const DOT = { ok: 'bg-good', stale: 'bg-fair', down: 'bg-poor', idle: 'bg-ink-3' } as const;
-const STATE = { ok: 'Live', stale: 'Serving cached data', down: 'Unavailable', idle: 'Not used yet' } as const;
+/** 300 → "every 5 min", 21600 → "every 6 h", 86400 → "daily" */
+function every(sec: number) {
+  const m = Math.round(sec / 60);
+  if (m >= 1440) return m === 1440 ? 'daily' : `every ${Math.round(m / 1440)} days`;
+  if (m >= 60) return m === 60 ? 'hourly' : `every ${Math.round(m / 60)} h`;
+  return `every ${m} min`;
+}
+const STATE = { ok: 'Live', stale: 'Serving cached data', down: 'Unavailable', idle: 'Idle' } as const;
 const ORDER = ['NOAA SWPC', 'Icelandic Met Office', 'Open-Meteo', 'MET Norway', 'Vegagerðin (road.is)', 'INTERMAGNET', 'Cameras'];
 
 /** Data Health: every source, status dot, last update, latency, and which fallback is in use. */
@@ -53,11 +60,11 @@ export function HealthSheet({ c, open, onClose }: { c: Conditions; open: boolean
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${DOT[s.state]}`} aria-hidden />
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-2 text-[14px]">
-                    <span className="truncate">{s.name}</span>
+                    <span className="min-w-0">{s.name}</span>
                     <span className="shrink-0 text-ink-3">{STATE[s.state]}</span>
                   </div>
                   <div className="text-[12px] text-ink-3">
-                    {s.lastSuccessAt ? `updated ${formatAge(s.lastSuccessAt)}` : 'no data yet'} · {s.lastLatencyMs != null ? `${s.lastLatencyMs} ms` : '—'} · refreshes every {Math.round(s.expectedRefreshSec / 60)} min
+                    {s.lastSuccessAt ? `updated ${formatAge(s.lastSuccessAt)}` : 'not fetched yet'}{s.lastLatencyMs != null ? ` · ${s.lastLatencyMs} ms` : ''} · refreshes {every(s.expectedRefreshSec)}
                     {s.lastError && s.state !== 'ok' ? ` · ${s.lastError}` : ''}
                   </div>
                 </div>

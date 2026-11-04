@@ -18,10 +18,10 @@ type Filter = 'all' | 'iceland' | 'allsky' | 'favorites';
 const KIND_ICON = { allsky: Radio, volcano: Mountain, glacier: Mountain, harbour: Waves, lighthouse: Eye } as Record<string, typeof CamIcon>;
 
 function statusDot(c: Camera) {
-  if (c.status === 'link') return <ExternalLink size={12} strokeWidth={2} className="text-ink-2" aria-hidden />;
+  if (c.status === 'link') return <ExternalLink size={12} strokeWidth={2} className="mt-[3px] shrink-0 text-ink-2" aria-hidden />;
   const col = c.status === 'live' ? 'bg-good' : c.status === 'stale' ? 'bg-fair' : 'bg-poor';
   return (
-    <span className="relative flex h-2.5 w-2.5" aria-hidden>
+    <span className="relative mt-[5px] flex h-2.5 w-2.5 shrink-0" aria-hidden>
       {c.status === 'live' && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${col} opacity-60 motion-reduce:hidden`} />}
       <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${col}`} />
     </span>
@@ -51,7 +51,7 @@ function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; fra
       <div className={`grid h-full w-full place-items-center ${big ? '' : 'aspect-[4/3]'}`} style={{ background: 'radial-gradient(120% 90% at 30% 10%, rgb(var(--aurora-rgb) / 0.22), transparent 60%), linear-gradient(160deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.01))' }}>
         <div className="text-center">
           <Icon size={big ? 36 : 22} strokeWidth={1.25} className="mx-auto text-ink-2" aria-hidden />
-          <div className="mt-1 text-[11px] text-ink-3">Live stream on operator site</div>
+          <div className="mt-1 text-[11px] text-ink-3">Opens live view</div>
         </div>
       </div>
     );
@@ -176,8 +176,8 @@ export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: strin
 
   return (
     <div ref={scrollRef} className="mx-auto max-w-xl px-5 pb-[calc(env(safe-area-inset-bottom)+108px)] pt-[max(20px,env(safe-area-inset-top))]">
-      <header className="mb-4 mt-2 flex items-end justify-between gap-3">
-        <div>
+      <header className="mb-4 mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
           <h1 className="on-sky font-display text-[34px] font-light">{t('cams.title')}</h1>
           <p className="on-sky text-[13px] text-ink-2">{t('cams.sub')}</p>
         </div>
@@ -230,9 +230,9 @@ export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: strin
                     <Thumb cam={cam} />
                   </motion.div>
                   <div className="px-3 pb-3 pt-2">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-start gap-1.5">
                       {statusDot(cam)}
-                      <span className="truncate text-[14px] font-medium">{cam.name}</span>
+                      <span className="line-clamp-2 text-[14px] font-medium leading-snug">{cam.name}</span>
                     </div>
                     <div className="mt-0.5 flex justify-between gap-1 text-[12px] text-ink-3">
                       <span className="truncate">{cam.km < 1000 ? `${Math.round(cam.km)} km` : `${(cam.km / 1000).toFixed(1)}k km`}</span>

@@ -19,8 +19,14 @@ export function wind(ms: number | null | undefined, u: Units): string {
 export function until(fromMs: number, toIso: string): string {
   const m = Math.round((new Date(toIso).getTime() - fromMs) / 60_000);
   if (m <= 0) return 'now';
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+  return duration(m);
+}
+
+/** "45 min" / "1 h 05 min", with non-breaking spaces so it never wraps mid-way. */
+export function duration(min: number): string {
+  const m = Math.max(0, Math.round(min));
+  if (m < 60) return `${m}\u00a0min`;
+  return `${Math.floor(m / 60)}\u00a0h\u00a0${String(m % 60).padStart(2, '0')}\u00a0min`;
 }
 
 /** "19:00" today, "tomorrow 19:00" otherwise (local calendar day). */

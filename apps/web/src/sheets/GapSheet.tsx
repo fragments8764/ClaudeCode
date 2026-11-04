@@ -1,6 +1,6 @@
 import { mapsLinks, type Gap } from '@nordurljos/core';
 import { CloudSun, Navigation } from 'lucide-react';
-import { hhmm } from '../lib/format';
+import { duration, hhmm } from '../lib/format';
 import { isApple } from '../lib/share';
 import { useSettings } from '../lib/store';
 import { Press } from '../ui/Button';
@@ -16,7 +16,7 @@ export function GapSheet({ gaps, open, onClose, darkFrom, darkUntil }: { gaps: G
   return (
     <Sheet open={open} onClose={onClose} title="Cloud-gap hunter" initial="full" detents={['half', 'full']} header={<StatHeader id="gaps" icon={CloudSun} label="Cloud-gap hunter" value={gaps.length ? gaps[0]!.spot.name : 'No gaps in reach'} />}>
       <p className="text-[14px] text-ink-2">
-        Darkness tonight {hhmm(darkFrom)}–{hhmm(darkUntil)}. Searching spots within {Math.floor(maxDriveMin / 60)}h{String(maxDriveMin % 60).padStart(2, '0')} drive (change in Settings → Your preferences).
+        Darkness tonight {hhmm(darkFrom)}–{hhmm(darkUntil)}. Searching spots within {duration(maxDriveMin)} drive. Change this in Settings.
       </p>
       {gaps.length === 0 && <p className="mt-4 text-[15px] text-ink-2">No clear, dark window within reach in the next 14 hours. Clouds cover everywhere you could drive to.</p>}
       <ol className="mt-4 space-y-3 pb-8">
@@ -29,10 +29,10 @@ export function GapSheet({ gaps, open, onClose, darkFrom, darkUntil }: { gaps: G
                 <div className={`shrink-0 text-[12px] ${CONF_TONE[g.confidence]}`}>{CONF[g.confidence]}</div>
               </div>
               <p className="mt-1 text-[15px] leading-snug">{g.summary}</p>
-              <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
+              <dl className="mt-3 grid grid-cols-[1.6fr_1fr_1.2fr] gap-2 text-[12px]">
                 <div>
                   <dt className="text-ink-3">Clear</dt>
-                  <dd className="text-[15px] tabular-nums">{hhmm(g.clearAt)}–{hhmm(g.clearUntil)}</dd>
+                  <dd className="whitespace-nowrap text-[15px] tabular-nums">{hhmm(g.clearAt)}–{hhmm(g.clearUntil)}</dd>
                 </div>
                 <div>
                   <dt className="text-ink-3">Cloud</dt>

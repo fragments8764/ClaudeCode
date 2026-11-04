@@ -69,15 +69,31 @@ export function SafetySheet({ c, open, onClose, onPlan }: { c: Conditions; open:
         {(d?.roads ?? []).slice(0, 6).map((r) => (
           <li key={r.station.id} className="py-2.5">
             <div className="flex justify-between gap-2 text-[14px]">
-              <span className="truncate font-medium">{r.station.name}</span>
+              <span className="min-w-0 font-medium">{r.station.name}</span>
               <span className="shrink-0 text-ink-3">{r.distanceKm} km</span>
             </div>
             <div className="text-[13px] text-ink-2">
-              {r.conditions.length ? r.conditions.map((cnd) => <span key={cnd.name + cnd.condition} className={`mr-2 ${SEV[cnd.severity]}`}>{cnd.condition}</span>) : <span className="text-ink-3">No condition report</span>}
+              {r.conditions.length ? (
+                // several road segments often report the same thing: show each condition once
+                [...new Map(r.conditions.map((cnd) => [cnd.condition, cnd])).values()].map((cnd) => (
+                  <span key={cnd.condition} className={`mr-2 ${SEV[cnd.severity]}`}>
+                    {cnd.condition}
+                  </span>
+                ))
+              ) : (
+                <span className="text-ink-3">No condition report</span>
+              )}
             </div>
             <div className="text-[12px] text-ink-3">
-              Wind {wind(r.station.windMs, units)} · gusts {wind(r.station.gustMs, units)} · air {temp(r.station.airC, units)}
-              {r.station.roadC != null ? ` · road ${temp(r.station.roadC, units)}` : ''} {r.station.time ? `· ${formatAge(r.station.time)}` : ''}
+              {[
+                r.station.windMs != null && `Wind ${wind(r.station.windMs, units)}`,
+                r.station.gustMs != null && `gusts ${wind(r.station.gustMs, units)}`,
+                r.station.airC != null && `air ${temp(r.station.airC, units)}`,
+                r.station.roadC != null && `road ${temp(r.station.roadC, units)}`,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'No live readings'}
+              {r.station.time ? ` · ${formatAge(r.station.time)}` : ''}
             </div>
           </li>
         ))}

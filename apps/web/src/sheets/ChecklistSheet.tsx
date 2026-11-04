@@ -73,9 +73,14 @@ export function ChecklistSheet({ c, open, onClose }: { c: Conditions; open: bool
               <Tick on={done.has(i.id)} />
               <span className="min-w-0 flex-1">
                 <span className={`block text-[15px] ${done.has(i.id) ? 'text-ink-3 line-through' : ''}`}>{i.label}</span>
-                {i.why && <span className="block text-[12px] text-fair">{i.why}</span>}
+                {(i.why || !i.essential) && (
+                  <span className="block text-[12px]">
+                    {i.why && <span className="text-fair">{i.why}</span>}
+                    {i.why && !i.essential && <span className="text-ink-3"> · </span>}
+                    {!i.essential && <span className="text-ink-3">Nice to have</span>}
+                  </span>
+                )}
               </span>
-              {!i.essential && <span className="text-[11px] text-ink-3">nice to have</span>}
             </button>
           </li>
         ))}

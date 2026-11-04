@@ -387,7 +387,7 @@ export default function App() {
 
       <AnimatePresence>
         {((!online && tab !== 'tonight') || toast) && (
-          <motion.div className="pointer-events-none fixed inset-x-0 top-0 flex justify-center px-4 pt-[max(10px,env(safe-area-inset-top))]" style={{ zIndex: 'var(--z-toast)' }} initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}>
+          <motion.div className="pointer-events-none fixed inset-x-0 top-0 flex justify-center px-4 pt-[calc(max(14px,env(safe-area-inset-top))+58px)]" style={{ zIndex: 'var(--z-toast)' }} initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}>
             <Glass radius="pill" role="status" className="flex items-center gap-2 px-4 py-2 text-[13px]">
               {!online && !toast ? <CloudOff size={15} strokeWidth={1.5} aria-hidden /> : <Sparkles size={15} strokeWidth={1.5} aria-hidden />}
               {!online && !toast ? t('offline.banner') : toast}
