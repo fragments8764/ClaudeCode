@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { banner, checkConfig } from './lib/configCheck';
 
 const dir = mkdtempSync(join(tmpdir(), 'nl-cfg-'));
-const FULL = { RENDER: 'true', DATA_DIR: dir, VAPID_PUBLIC_KEY: 'p', VAPID_PRIVATE_KEY: 'k', VAPID_SUBJECT: 'mailto:a@b.is', ADMIN_TOKEN: 'x'.repeat(32), OPEN_METEO_API_KEY: 'om', CONTACT_EMAIL: 'a@b.is' };
+const FULL = { RENDER: 'true', DATA_DIR: dir, VAPID_PUBLIC_KEY: 'p', VAPID_PRIVATE_KEY: 'k', VAPID_SUBJECT: 'mailto:a@b.is', ADMIN_TOKEN: 'x'.repeat(32), OPEN_METEO_API_KEY: 'om', CONTACT_EMAIL: 'a@b.is', ROUTING_PROVIDER: 'osrm', OSRM_URL: 'http://osrm:5000' };
 
 describe('production settings check', () => {
   it('is quiet when everything is set', () => {

@@ -100,6 +100,12 @@ export function CloudSheet({ c, open, onClose }: { c: Conditions; open: boolean;
         </p>
       )}
 
+      {!d?.observed && d?.crossCheck && (
+        <p className="mt-3 rounded-[var(--r-md)] bg-[rgb(250_204_21/0.08)] p-3 text-[13px] text-ink-2">
+          The two forecasts disagree ({d.perSource.map((p) => `${p.source === 'open-meteo' ? 'Open-Meteo' : 'MET Norway'} ${p.current?.total ?? '?'}%`).join(', ')}). {d.crossCheck} Showing the average. Check a camera before you drive.
+        </p>
+      )}
+
       <ChartSection
         title="Next 24 hours"
         points={hours.map((h) => ({ t: Date.parse(h.time), v: h.total }))}

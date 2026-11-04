@@ -31,6 +31,8 @@ export function checkConfig(env: Record<string, string | undefined>, opts: { dat
   if (!env.ADMIN_TOKEN) out.push({ key: 'ADMIN_TOKEN', level: 'warn', problem: '/admin (score validation, beta feedback, moderation) is switched off.', fix: 'Set ADMIN_TOKEN to a long random string (Render can generate one).' });
   else if (env.ADMIN_TOKEN.length < 20) out.push({ key: 'ADMIN_TOKEN', level: 'warn', problem: 'ADMIN_TOKEN is short and guessable.', fix: 'Use 20+ random characters.' });
   if (!env.OPEN_METEO_API_KEY) out.push({ key: 'OPEN_METEO_API_KEY', level: 'warn', problem: 'Using Open-Meteo’s free tier: non-commercial use only, shared rate limit.', fix: 'For a commercial launch, buy an API key at open-meteo.com and set OPEN_METEO_API_KEY.' });
+  if (env.OPEN_METEO_API_KEY && (env.ROUTING_PROVIDER ?? 'fossgis') === 'fossgis')
+    out.push({ key: 'ROUTING_PROVIDER', level: 'warn', problem: 'You look commercial (paid Open-Meteo key) but routing still uses the free FOSSGIS server, which is for light, non-commercial use.', fix: 'Set ROUTING_PROVIDER=ors with a paid ORS_API_KEY, or ROUTING_PROVIDER=osrm with your own OSRM_URL.' });
   if (!env.CONTACT_EMAIL) out.push({ key: 'CONTACT_EMAIL', level: 'warn', problem: 'MET Norway’s terms ask for a contact in the User-Agent.', fix: 'Set CONTACT_EMAIL to a real address.' });
   return out;
 }

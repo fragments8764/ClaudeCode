@@ -25,6 +25,9 @@ import {
   calibration,
   eveningOf,
   classifyStation,
+  parseOrsRoute,
+  parseOsrmRoute,
+  pathCorridor,
   routeCorridor,
   fiveNightOutlook,
   parse27Day,
@@ -40,7 +43,7 @@ import type { CameraDef, ConfigLoader } from '../lib/config';
 import type { Fetcher, FetchResult } from '../lib/fetcher';
 import { FrameStore } from '../lib/frames';
 import { RateLimiter } from '../lib/ratelimit';
-import { openMeteoHost, openMeteoKey, PROVIDER_TERMS, SOURCES, type SourceId } from '../lib/sources';
+import { openMeteoHost, openMeteoKey, PROVIDER_TERMS, routingProvider, SOURCES, type SourceId } from '../lib/sources';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -373,13 +376,37 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     return c.json({ data, meta: { generatedAt: now().toISOString(), sources: [ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc)] } });
   });
 
+  // ── Road routing: cached 24 h on a ~2 km grid, at most 1 upstream request/second ──
+  const routeCache = new Map<string, { at: number; v: ReturnType<typeof parseOsrmRoute> }>();
+  let nextRouteAt = 0;
+  async function roadRoute(from: { lat: number; lon: number }, to: { lat: number; lon: number }) {
+    const prov = routingProvider();
+    if (!prov) return { route: null, provider: null, reason: 'Routing is switched off on this server, so this is a straight-line estimate.', meta: null };
+    const a = { lat: snapCoord(from.lat, 0.02), lon: snapCoord(from.lon, 0.02) };
+    const key = `${a.lat},${a.lon}>${to.lat.toFixed(4)},${to.lon.toFixed(4)}`;
+    const hit = routeCache.get(key);
+    if (hit && now().getTime() - hit.at < 24 * 3.6e6) return { route: hit.v, provider: prov.name, reason: hit.v ? null : 'No road route found, so this is a straight-line estimate.', meta: null };
+    const wait = nextRouteAt - Date.now();
+    nextRouteAt = Math.max(Date.now(), nextRouteAt) + 1100; // FOSSGIS / OSRM demo policy: ≤ 1 request per second
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const r = await Promise.allSettled([fetcher.get('road-route', prov.url(a, to), (x) => (prov.kind === 'ors' ? parseOrsRoute(x) : parseOsrmRoute(x)), key)]);
+    const v = val(r[0]) ?? null;
+    if (r[0].status === 'fulfilled') routeCache.set(key, { at: now().getTime(), v });
+    if (routeCache.size > 2000) routeCache.delete(routeCache.keys().next().value!);
+    return { route: v, provider: prov.name, reason: v ? null : 'Road routing is unavailable right now, so this is a straight-line estimate.', meta: ctx.meta('road-route', r[0]) };
+  }
+
   app.get('/api/route', async (c) => {
     const from = ctx.parseLatLon((k) => c.req.query(k === 'lat' ? 'fromLat' : 'fromLon'));
     const to = ctx.parseLatLon((k) => c.req.query(k === 'lat' ? 'toLat' : 'toLon'));
     if (!from || !to) return c.json({ error: 'fromLat, fromLon, toLat, toLon required' }, 400);
-    const [st, rc] = await roadData();
-    const corridor = routeCorridor(from, to, val(st) ?? [], val(rc) ?? [], 15);
-    return c.json({ data: corridor, meta: { generatedAt: now().toISOString(), sources: [ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc)] } });
+    const [[st, rc], road] = await Promise.all([roadData(), roadRoute(from, to)]);
+    // real road route → narrow corridor along the roads; otherwise the honest straight-line fallback
+    const corridor = road.route ? pathCorridor(road.route.path, val(st) ?? [], val(rc) ?? [], 4) : routeCorridor(from, to, val(st) ?? [], val(rc) ?? [], 15);
+    return c.json({
+      data: { ...corridor, route: road.route ? { ...road.route, provider: road.provider } : null, fallback: road.route ? null : road.reason },
+      meta: { generatedAt: now().toISOString(), sources: [ctx.meta('vg-weather', st), ctx.meta('vg-roads', rc), ...(road.meta ? [road.meta] : [])] },
+    });
   });
 
   app.get('/api/warnings', async (c) => {

@@ -55,20 +55,51 @@ export function classifyStation(s: RoadStation, conds: RoadCondition[]): Segment
 }
 
 export function routeCorridor(from: LatLon, to: LatLon, stations: RoadStation[], conditions: RoadCondition[], widthKm = 15): Corridor {
+  return pathCorridor([from, to], stations, conditions, widthKm);
+}
+
+/** Position of P relative to a polyline: distance (km) to the nearest point and 0–1 position along it. */
+export function nearestOnPath(path: LatLon[], p: LatLon): { d: number; at: number } {
+  if (path.length === 1) return { d: haversineKm(path[0]!, p), at: 0 };
+  const lens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    const l = haversineKm(path[i - 1]!, path[i]!);
+    lens.push(l);
+    total += l;
+  }
+  let best = { d: Infinity, at: 0 };
+  let acc = 0;
+  for (let i = 1; i < path.length; i++) {
+    const { d, t } = crossTrack(path[i - 1]!, path[i]!, p);
+    if (d < best.d) best = { d, at: total ? (acc + t * lens[i - 1]!) / total : 0 };
+    acc += lens[i - 1]!;
+  }
+  return best;
+}
+
+/**
+ * Road stations and conditions along a route. With a real road route (from a routing
+ * service) the corridor follows the actual roads and can be narrow (stations sit on the
+ * road); with the straight-line fallback ([from, to]) it is wide.
+ */
+export function pathCorridor(path: LatLon[], stations: RoadStation[], conditions: RoadCondition[], widthKm = 15): Corridor {
   const bySeg = new Map(conditions.map((c) => [c.segmentId, c]));
+  const from = path[0]!;
+  const to = path[path.length - 1]!;
   const total = haversineKm(from, to);
   const segments: CorridorSegment[] = [];
   for (const s of stations) {
-    const { d, t } = crossTrack(from, to, s);
+    const { d, at } = nearestOnPath(path, s);
     if (d > widthKm) continue;
     // ignore stations far beyond either end
-    if ((t === 0 && haversineKm(from, s) > widthKm) || (t === 1 && haversineKm(to, s) > widthKm)) continue;
+    if ((at === 0 && haversineKm(from, s) > widthKm) || (at === 1 && haversineKm(to, s) > widthKm)) continue;
     const conds = s.segmentIds.map((id) => bySeg.get(id)).filter((c): c is RoadCondition => !!c);
     segments.push({
       station: s.name,
       lat: s.lat,
       lon: s.lon,
-      at: total < 1 ? 0 : t,
+      at: total < 1 ? 0 : at,
       kind: classifyStation(s, conds),
       gustMs: s.gustMs,
       roadC: s.roadC,
@@ -97,4 +128,35 @@ export function roadTypeWarning(roadType: RoadType | undefined, conditionText?: 
   if (/fjallab|mountain vehicle|4x4/i.test(conditionText ?? '')) return 'Passable only for 4×4 / mountain vehicles: not for most rental cars.';
   if (roadType === 'gravel') return 'Gravel road: drive slowly; many rental agreements exclude gravel damage.';
   return null;
+}
+
+/* ── Road routing responses ─────────────────────────────────────────────────── */
+
+export interface RoadRoute {
+  distanceKm: number;
+  durationMin: number;
+  /** simplified polyline, [lat, lon] */
+  path: LatLon[];
+}
+
+/** OSRM /route/v1 with geometries=geojson. */
+export function parseOsrmRoute(raw: unknown): RoadRoute | null {
+  const r = (raw as { code?: string; routes?: { distance: number; duration: number; geometry?: { coordinates?: [number, number][] } }[] })?.routes?.[0];
+  if ((raw as { code?: string })?.code !== 'Ok' || !r || !Array.isArray(r.geometry?.coordinates)) return null;
+  return { distanceKm: Math.round(r.distance / 100) / 10, durationMin: Math.round(r.duration / 60), path: thinPath(r.geometry!.coordinates!.map(([lon, lat]) => ({ lat, lon }))) };
+}
+
+/** openrouteservice /v2/directions/driving-car/geojson. */
+export function parseOrsRoute(raw: unknown): RoadRoute | null {
+  const f = (raw as { features?: { geometry?: { coordinates?: [number, number][] }; properties?: { summary?: { distance: number; duration: number } } }[] })?.features?.[0];
+  const sum = f?.properties?.summary;
+  if (!f || !sum || !Array.isArray(f.geometry?.coordinates)) return null;
+  return { distanceKm: Math.round(sum.distance / 100) / 10, durationMin: Math.round(sum.duration / 60), path: thinPath(f.geometry!.coordinates!.map(([lon, lat]) => ({ lat, lon }))) };
+}
+
+/** Keep at most `max` points (evenly), always including both ends. */
+export function thinPath(p: LatLon[], max = 200): LatLon[] {
+  if (p.length <= max) return p;
+  const step = (p.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => p[Math.round(i * step)]!);
 }

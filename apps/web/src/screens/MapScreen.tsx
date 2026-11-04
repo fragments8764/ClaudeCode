@@ -314,7 +314,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
     const color = worst === 'closed' ? '#fb7185' : worst === 'wind' ? '#a78bfa' : worst === 'slippery' ? '#facc15' : worst === 'clear' ? '#4ade80' : '#94a3b8';
     (m.getSource('route') as GeoJSONSource).setData({
       type: 'FeatureCollection',
-      features: sheet === 'spot' && picked ? [{ type: 'Feature', properties: { color }, geometry: { type: 'LineString', coordinates: [[location.lon, location.lat], [picked.spot.lon, picked.spot.lat]] } }] : [],
+      features: sheet === 'spot' && picked ? [{ type: 'Feature', properties: { color }, geometry: { type: 'LineString', coordinates: route.data?.data.route ? route.data.data.route.path.map((p) => [p.lon, p.lat]) : [[location.lon, location.lat], [picked.spot.lon, picked.spot.lat]] } }] : [],
     });
   }, [route.data, sheet, picked, location.lat, location.lon, ready]);
 

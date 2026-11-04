@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
 import { useSettings } from './store';
-import { resolveWeights, type Corridor, type NightOutlook, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
+import { resolveWeights, type Corridor, type RoadRoute, type NightOutlook, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
@@ -128,10 +128,12 @@ export interface RoadPoint {
 }
 export const useRoads = (enabled = true) => usePersistedQuery<Envelope<RoadPoint[]>>('roads', '/api/roads', 10 * 60_000, enabled);
 export const useWarnings = () => usePersistedQuery<Envelope<SafetyData['warnings']>>('warnings', '/api/warnings', 10 * 60_000);
+/** Corridor + the real road route (or why we fell back to a straight line). */
+export type RouteResult = Corridor & { route: (RoadRoute & { provider: string }) | null; fallback: string | null };
 export function useRoute(from: { lat: number; lon: number }, to: { lat: number; lon: number } | null) {
   const f = `${snap(from.lat)},${snap(from.lon)}`;
   const t = to ? `${to.lat.toFixed(3)},${to.lon.toFixed(3)}` : '';
-  return usePersistedQuery<Envelope<Corridor>>(`route:${f}:${t}`, `/api/route?fromLat=${snap(from.lat)}&fromLon=${snap(from.lon)}&toLat=${to?.lat}&toLon=${to?.lon}`, 10 * 60_000, !!to);
+  return usePersistedQuery<Envelope<RouteResult>>(`route:${f}:${t}`, `/api/route?fromLat=${snap(from.lat)}&fromLon=${snap(from.lon)}&toLat=${to?.lat}&toLon=${to?.lon}`, 10 * 60_000, !!to);
 }
 
 /** IANA timezone of a place (cached for days; times then render in the place's local time). */

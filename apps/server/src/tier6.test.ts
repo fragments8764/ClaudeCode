@@ -140,3 +140,23 @@ describe('health exposes settings problems by name only', () => {
     expect(JSON.stringify(h)).not.toMatch(/secret-ish/);
   });
 });
+
+describe('road routing', () => {
+  const osrm = readFileSync(new URL('../../../packages/core/src/__tests__/fixtures/osrm-rvk-kleifarvatn.json', import.meta.url), 'utf8');
+  const mk = (routeRes: () => Response) =>
+    createApp({ fetcher: new Fetcher(SOURCES, { fetch: (async (u: string) => (String(u).includes('/route/v1/') ? routeRes() : new Response('[]', { headers: { 'content-type': 'application/json' } }))) as never, retries: 0, sleep: async () => {} }), inlineConfig: { spots: [], cameras: [] } } as never);
+  const q = '/api/route?fromLat=64.1466&fromLon=-21.9426&toLat=63.9314&toLon=-22.0583';
+  it('follows the real road and reports the drive time', async () => {
+    const r = (await (await mk(() => new Response(osrm, { headers: { 'content-type': 'application/json' } })).request(q)).json()).data;
+    expect(r.route.provider).toBe('FOSSGIS OSRM');
+    expect(r.route.durationMin).toBeGreaterThan(25);
+    expect(r.route.path.length).toBeGreaterThan(10);
+    expect(r.fallback).toBeNull();
+  });
+  it('falls back to a straight line, and says so, when routing fails', async () => {
+    const r = (await (await mk(() => new Response('busy', { status: 503 })).request(q)).json()).data;
+    expect(r.route).toBeNull();
+    expect(r.fallback).toMatch(/straight-line/);
+    expect(Array.isArray(r.segments)).toBe(true);
+  });
+});

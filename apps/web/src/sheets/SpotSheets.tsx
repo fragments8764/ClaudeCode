@@ -44,6 +44,11 @@ export function RouteCorridor({ r }: { r: RankedSpot }) {
   return (
     <div className="mt-4">
       <h3 className="mb-2 text-[11px] uppercase tracking-[0.22em] text-ink-3">Roads on the way</h3>
+      {c?.route && (
+        <p className="mb-2 text-[15px]">
+          <span className="font-medium">{duration(c.route.durationMin)}</span> <span className="text-ink-2">by road · {c.route.distanceKm} km</span>
+        </p>
+      )}
       {q.isLoading && !c ? (
         <div className="skeleton h-3 rounded-full" />
       ) : c && c.segments.length ? (
@@ -81,7 +86,13 @@ export function RouteCorridor({ r }: { r: RankedSpot }) {
           ))}
         </ul>
       )}
-      <p className="mt-2 text-[11px] text-ink-3">Approximate corridor (stations within 15 km of the straight line). Check umferdin.is for your exact route.</p>
+      <p className="mt-2 text-[11px] text-ink-3">
+        {c?.route
+          ? `Weather stations along the actual road route (${c.route.provider}, © OpenStreetMap contributors). Check umferdin.is for closures before you leave.`
+          : c?.fallback
+            ? `${c.fallback} Stations within 15 km of the straight line. Check umferdin.is for your exact route.`
+            : 'Check umferdin.is for your exact route.'}
+      </p>
     </div>
   );
 }

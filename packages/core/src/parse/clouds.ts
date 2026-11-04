@@ -1,3 +1,4 @@
+import { haversineKm } from '../geo';
 import type { CloudForecast, CloudLayers } from '../types';
 import { isRecord, isoUtc, num, ParseError } from './util';
 
@@ -106,6 +107,8 @@ export interface CloudConsensus {
   hourly: CloudLayers[];
   /** Set when a nearby real observation settled a disagreement between the models. */
   observed?: { name: string; distanceKm: number; time: string; percent: number; picked: CloudForecast['source'] } | null;
+  /** Why the real-sky check could not run (models disagree but no usable sensor). */
+  crossCheck?: string | null;
 }
 
 export interface NearbyCloudObservation {
@@ -175,4 +178,28 @@ export function combineClouds(forecasts: (CloudForecast | null)[]): CloudConsens
     }));
 
   return { current, effective: current ? effectiveCloud(current) : null, confidence, spread, perSource, hourly };
+}
+
+/**
+ * Pick the sensor that may settle a model disagreement: the nearest one within 40 km that
+ * reported in the last 90 min (the very nearest often lags), or say why none can.
+ */
+export function chooseCloudSensor(
+  sensors: { name: string; time: string; oktas: number | null; lat: number; lon: number }[] | null,
+  here: { lat: number; lon: number },
+  now: Date,
+  maxKm = 40,
+  maxAgeMin = 90,
+): { sensor: NearbyCloudObservation | null; reason: string | null } {
+  if (!sensors) return { sensor: null, reason: 'The Icelandic Met Office cloud sensors are not answering right now, so we could not check the real sky.' };
+  const near = sensors
+    .filter((o) => o.oktas != null)
+    .map((o) => ({ name: o.name, time: o.time, oktas: o.oktas!, distanceKm: Math.round(haversineKm(here, o)) }))
+    .filter((o) => o.distanceKm <= maxKm)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  if (!near.length) return { sensor: null, reason: `No cloud sensor within ${maxKm} km of here, so we could not check the real sky.` };
+  const fresh = near.find((o) => now.getTime() - Date.parse(o.time) <= maxAgeMin * 60_000);
+  if (fresh) return { sensor: fresh, reason: null };
+  const age = Math.round((now.getTime() - Date.parse(near[0]!.time)) / 60_000);
+  return { sensor: null, reason: `The nearest cloud sensors (${near[0]!.name}, ${near[0]!.distanceKm} km) have not reported for ${age} min, so we could not check the real sky.` };
 }

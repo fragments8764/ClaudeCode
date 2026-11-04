@@ -109,3 +109,20 @@ describe('cloud disagreement (regression: 91 % vs 31 % averaged to a misleading 
     expect(arbitrateClouds(c, { name: 'x', distanceKm: 5, time: '2026-11-04T16:00:00Z', oktas: 0 }, now).current!.total).toBe(61);
   });
 });
+
+import { chooseCloudSensor } from '../parse/clouds';
+describe('cloud cross-check sensor choice (regression: gave up when the nearest sensor lagged)', () => {
+  const now = new Date('2026-11-04T20:10:00Z');
+  const here = { lat: 64.1466, lon: -21.9426 };
+  const s = (name: string, lat: number, lon: number, minsAgo: number, oktas: number | null = 6) => ({ name, lat, lon, oktas, time: new Date(now.getTime() - minsAgo * 60_000).toISOString() });
+  it('skips a stale nearest sensor and uses the next fresh one within 40 km', () => {
+    const r = chooseCloudSensor([s('Reykjavík', 64.13, -21.9, 200), s('Keflavík', 63.99, -22.6, 10)], here, now);
+    expect(r.sensor?.name).toBe('Keflavík');
+    expect(r.reason).toBeNull();
+  });
+  it('explains why it cannot run', () => {
+    expect(chooseCloudSensor(null, here, now).reason).toMatch(/not answering/);
+    expect(chooseCloudSensor([s('Akureyri', 65.68, -18.09, 5)], here, now).reason).toMatch(/No cloud sensor within 40 km/);
+    expect(chooseCloudSensor([s('Reykjavík', 64.13, -21.9, 200)], here, now).reason).toMatch(/have not reported for 200 min/);
+  });
+});

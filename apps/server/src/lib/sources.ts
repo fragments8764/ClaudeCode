@@ -45,6 +45,12 @@ export const PROVIDER_TERMS: Record<string, { license: string; terms: string; ur
     terms: 'Only streams whose owners enable embedding are played, inside YouTube’s own privacy-enhanced player and only after you tap play. Each stream credits its owner.',
     url: 'https://www.youtube.com/t/terms',
   },
+  Routing: {
+    license: 'OpenStreetMap data (ODbL); service terms vary',
+    terms: 'Default: FOSSGIS routing.openstreetmap.de, light use only (1 request/s, attribution, identifying User-Agent). openrouteservice free plan: 2,000 routes/day, non-commercial. For a commercial launch use a paid plan or a self-hosted OSRM (ROUTING_PROVIDER, OSRM_URL, ORS_API_KEY).',
+    url: 'https://routing.openstreetmap.de/about.html',
+    flag: 'Default routing service is for light, non-commercial use',
+  },
   OpenFreeMap: { license: '© OpenMapTiles © OpenStreetMap contributors (ODbL)', terms: 'Free, no key; attribution required. Consider a donation or self-hosting at scale.', url: 'https://openfreemap.org/' },
   'NASA GIBS': { license: 'NASA open data', terms: 'Free to use with credit to NASA EOSDIS GIBS / VIIRS.', url: 'https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api' },
   'NASA OMNI2 (backtest only)': { license: 'NASA open data', terms: 'Credit NASA/GSFC Space Physics Data Facility OMNIWeb.', url: 'https://omniweb.gsfc.nasa.gov/' },
@@ -258,6 +264,36 @@ export const SOURCES = {
     staleMs: 6 * 60 * MIN,
     timeoutMs: 8000,
   },
+  'road-route': {
+    id: 'road-route',
+    provider: 'Routing',
+    name: 'Road routing (OSRM / openrouteservice)',
+    attribution: 'Routes © OpenStreetMap contributors (ODbL) via the configured routing service',
+    homepage: 'https://www.openstreetmap.org/copyright',
+    ttlMs: 24 * 60 * MIN,
+    staleMs: 7 * 24 * 60 * MIN,
+    timeoutMs: 8000,
+  },
 } satisfies Record<string, SourceDef>;
 
 export type SourceId = keyof typeof SOURCES;
+
+/**
+ * Road routing provider, from env:
+ *   ROUTING_PROVIDER=fossgis (default) | osrm (self-hosted, needs OSRM_URL) | ors (needs ORS_API_KEY) | none
+ */
+export function routingProvider(env: Record<string, string | undefined> = process.env): { name: string; url: (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => string; kind: 'osrm' | 'ors' } | null {
+  const p = (env.ROUTING_PROVIDER ?? 'fossgis').toLowerCase();
+  const ll = (x: { lat: number; lon: number }) => `${x.lon.toFixed(5)},${x.lat.toFixed(5)}`;
+  if (p === 'none') return null;
+  if (p === 'ors') {
+    if (!env.ORS_API_KEY) return null;
+    return { name: 'openrouteservice', kind: 'ors', url: (a, b) => `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${encodeURIComponent(env.ORS_API_KEY!)}&start=${ll(a)}&end=${ll(b)}` };
+  }
+  if (p === 'osrm') {
+    if (!env.OSRM_URL) return null;
+    const base = env.OSRM_URL.replace(/\/$/, '');
+    return { name: 'OSRM', kind: 'osrm', url: (a, b) => `${base}/route/v1/driving/${ll(a)};${ll(b)}?overview=full&geometries=geojson&steps=false` };
+  }
+  return { name: 'FOSSGIS OSRM', kind: 'osrm', url: (a, b) => `https://routing.openstreetmap.de/routed-car/route/v1/driving/${ll(a)};${ll(b)}?overview=full&geometries=geojson&steps=false` };
+}

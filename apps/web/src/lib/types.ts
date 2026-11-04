@@ -49,6 +49,7 @@ export interface Clouds {
   fallback?: string | null;
   /** a nearby ceilometer settled a disagreement between the models */
   observed?: { name: string; distanceKm: number; time: string; percent: number; picked: string } | null;
+  crossCheck?: string | null;
 }
 
 export interface Health {

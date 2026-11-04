@@ -6,8 +6,8 @@ import {
   bestWindow,
   bucketAverage,
   arbitrateClouds,
+  chooseCloudSensor,
   combineClouds,
-  haversineKm,
   parseCeilometer,
   computeScore,
   hourlyOutlook,
@@ -210,13 +210,12 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
     const metNoNow = mnv ? { ...mnv, current: nearest(mnv.hourly, now()) } : null;
     let consensus = combineClouds([omv?.clouds ?? null, metNoNow]);
     if (consensus.confidence === 'low') {
-      // models disagree: let the nearest IMO ceilometer decide (cached feed, Iceland only)
+      // Models disagree: let a real IMO ceilometer decide. Use the nearest one that has
+      // reported in the last 90 min (not just the nearest — it often lags), within 40 km.
       const [obs, st] = await Promise.allSettled([fetcher.get('imo-obs', UP2.ceilo, (x) => x), fetcher.get('imo-stations', UP2.imoStations, (x) => x)]);
-      const near = parseCeilometer(val(obs), val(st))
-        .filter((o) => o.oktas != null)
-        .map((o) => ({ name: o.name, time: o.time, oktas: o.oktas!, distanceKm: Math.round(haversineKm({ lat, lon }, o)) }))
-        .sort((a, b) => a.distanceKm - b.distanceKm)[0];
-      consensus = arbitrateClouds(consensus, near ?? null, now());
+      const pick = chooseCloudSensor(val(obs) ? parseCeilometer(val(obs), val(st)) : null, { lat, lon }, now());
+      consensus = arbitrateClouds(consensus, pick.sensor, now());
+      if (!consensus.observed) consensus = { ...consensus, crossCheck: pick.reason };
     }
     const tIso = new Date(now().getTime() - 3.6e6).toISOString();
     return {

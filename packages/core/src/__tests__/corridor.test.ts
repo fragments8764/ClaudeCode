@@ -44,3 +44,39 @@ describe('road type warnings', () => {
     expect(roadTypeWarning('paved')).toBeNull();
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { nearestOnPath, parseOrsRoute, parseOsrmRoute, pathCorridor, thinPath } from '../corridor';
+describe('real road routes (regression: straight-line drive times and hazards)', () => {
+  const raw = JSON.parse(readFileSync(new URL('./fixtures/osrm-rvk-kleifarvatn.json', import.meta.url), 'utf8'));
+  it('parses a recorded OSRM route Reykjavík → Kleifarvatn', () => {
+    const r = parseOsrmRoute(raw)!;
+    expect(r.distanceKm).toBeGreaterThan(28);
+    expect(r.distanceKm).toBeLessThan(40);
+    expect(r.durationMin).toBeGreaterThan(25);
+    expect(r.path.length).toBeLessThanOrEqual(200);
+    expect(r.path[0]!.lat).toBeCloseTo(64.15, 1);
+  });
+  it('rejects error responses', () => {
+    expect(parseOsrmRoute({ code: 'NoRoute', routes: [] })).toBeNull();
+    expect(parseOrsRoute({})).toBeNull();
+  });
+  it('parses openrouteservice GeoJSON', () => {
+    const r = parseOrsRoute({ features: [{ geometry: { coordinates: [[-21.94, 64.15], [-22.06, 63.93]] }, properties: { summary: { distance: 32150, duration: 2100 } } }] })!;
+    expect(r).toMatchObject({ distanceKm: 32.2, durationMin: 35 });
+  });
+  it('a station beside the road counts; one 10 km off the road does not (narrow corridor)', () => {
+    const path = parseOsrmRoute(raw)!.path;
+    const onRoad = path[Math.floor(path.length / 2)]!;
+    const st = (name: string, lat: number, lon: number) => ({ id: 1, name, lat, lon, time: null, windMs: 10, gustMs: 22, airC: 0, roadC: -1, segmentIds: [] });
+    const c = pathCorridor(path, [st('On road', onRoad.lat + 0.005, onRoad.lon), st('Far off', onRoad.lat, onRoad.lon + 0.25)], [], 4);
+    expect(c.segments.map((s) => s.station)).toEqual(['On road']);
+    expect(c.segments[0]!.at).toBeGreaterThan(0.2);
+    expect(c.maxGust).toBe(22);
+  });
+  it('thins long paths and measures position along them', () => {
+    const p = Array.from({ length: 1000 }, (_, i) => ({ lat: 64, lon: -22 + i / 1000 }));
+    expect(thinPath(p, 50)).toHaveLength(50);
+    expect(nearestOnPath(p, { lat: 64.0, lon: -21.5 }).at).toBeCloseTo(0.5, 2);
+  });
+});
