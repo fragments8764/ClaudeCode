@@ -14,7 +14,7 @@ photograph it. It's built for use outdoors at night, in the cold, with gloves on
   <img src="docs/screens/22-night-vision.png" width="180" alt="Night Vision">
 </p>
 
-**Status: v1.2, all 8 phases, design steps 1–4 and addendum Tiers 1–6 complete, plus auto-update.** See [CHANGELOG.md](CHANGELOG.md) and
+**Status: v1.3, all phases, addendum Tiers 1–6, auto-update, and a full QA pass ([report](docs/qa/QA-REPORT-2026-11.md)).** See [CHANGELOG.md](CHANGELOG.md) and
 [docs/screens](docs/screens) for every screen.
 
 ## What's in it
@@ -35,6 +35,9 @@ photograph it. It's built for use outdoors at night, in the cold, with gloves on
 | **Field tools** | Tonight's checklist, battery saver (refresh ×3 slower, sky off), driving mode with large type and optional spoken alerts, and a photo shot log that suggests settings from your past shots. |
 | **Community** | Sightings verified when two or more people nearby agree, an optional photo, private sightings, report/hide moderation, a live layer on the map and a weekly feed. |
 | **Privacy & product** | Approximate location by default (precise only on request), export or delete your data, opt-in analytics and crash reports, Sources & credits, and server-side feature flags. |
+| **Detail sheets** | Tap the score ring, a Tonight pill or a Space card for an Apple-Weather-style view: drag the timeline to read any hour, see Now / Highest / Lowest and a plain-English explanation. "Why this score?" shows the four factors and the actual formula. |
+| **Live video** | Streams whose owners allow embedding play inside the app (explore.org Northern Lights Cam). Nothing loads from YouTube until you tap play. Live from Iceland streams open on their site: their player only plays there. |
+| **Regions** | 12 bases beyond Iceland (Norway, Sweden, Finland, Greenland, Canada, Alaska). Iceland-only tools (roads, IMO warnings, curated spots, cloud map) switch off elsewhere. Times show in the location's timezone. |
 | **Auto-update** | The installed app checks for a new version every 30 min, when you reopen it and when signal returns. It switches over while it's in the background or after 20 s idle with nothing open (never mid-tap, while typing or in driving mode), then shows "Updated to v…". Settings → App shows the version and has "Check for updates". |
 | **Comfort** | Night Vision (all red), Reduce motion / transparency (system, on or off), Low power (30 fps sky), haptics, units, and 6 languages (EN, IS, DE, FR, 中文, 日本語). |
 
@@ -47,7 +50,7 @@ Requires Node 20+.
 ```bash
 npm install
 npm run dev          # API on :8787, web on :5173 (Vite proxies /api → :8787)
-npm test             # 174 tests: core logic, parsers (recorded fixtures), server routes, web helpers
+npm test             # 197 tests: core logic, parsers (recorded fixtures), server routes, web helpers
 npm run backtest     # score validation against real OMNI2 storm/quiet nights → DATA_DIR/backtest/report.md
 npm run typecheck
 npm run build        # PWA + server bundle
@@ -154,6 +157,8 @@ apps/web          React 19 · Vite · Tailwind 4 · Motion · MapLibre · React 
 | `GET /api/outlook?lat&lon` | 5-night outlook |
 | `GET /api/feed` · `/api/sightings/:id/photo\|report\|delete` | Weekly feed, photos, moderation (owner token) |
 | `POST /api/outcomes` · `/api/telemetry` · `/api/crash` | Did-you-see-it feedback, opt-in analytics and crash reports |
+| `GET /api/timezone?lat&lon` | IANA timezone of a place (location-local times) |
+| `POST /api/beta-feedback` · `GET /api/admin/beta-feedback` | Beta feedback with optional screenshot (admin-only reading) |
 | `GET /api/sources` · `/api/features` · `/api/score-weights` | Credits and terms, feature flags, score weights |
 | `GET /admin?token=` | Internal dashboard (validation, moderation, telemetry) |
 
@@ -191,12 +196,16 @@ Animations are transform/opacity only.
 | OpenFreeMap | Dark vector base map | © OpenMapTiles, © OpenStreetMap contributors |
 | NASA GIBS | VIIRS Black Marble light pollution | |
 | NOAA SWPC 27-day outlook | 5-night outlook | Text product, parsed |
+| YouTube (embedded player) | Live video for streams whose owners enable embedding | Checked hourly via oEmbed; privacy-enhanced player, loads only on tap |
+| US Naval Observatory API | Verification only: sun/moon rise and set (test fixture) | Moon times match within 1 min |
 | NASA OMNI2 (SPDF) | Backtest of the score on historical storm/quiet nights | Public domain |
 | UiT, SGO/Oulu, AuroraMAX (CSA/UCalgary) | **Link-out only** (changed in v1.1) | Sodankylä prohibits public presentation without permission; all three are links until the operators agree |
 | Live from Iceland (Míla), IRF Kiruna, Lights over Lapland, UAF, FMI | Link-out cameras | |
 
 ## Known limitations
 
+- Live video playback couldn't be verified here (YouTube refuses headless browsers); it loads correctly up to playback.
+- Outside Iceland: no road conditions, local warnings, curated spots or cloud map yet.
 - Tested in headless Chromium with Android Chrome emulation (slow 3G + 4× CPU: score in 6.0 s cold, ~1.1 s warm) and at
   iPhone size, but not yet on physical iOS Safari. Headless WebGL is
   software-rendered, so its frame rates aren't representative.

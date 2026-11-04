@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0 — QA pass, fixes, refinements and extensions (2026-11-04)
+
+Full report: [docs/qa/QA-REPORT-2026-11.md](docs/qa/QA-REPORT-2026-11.md).
+
+### Fixed (by severity)
+- **Moonrise/moonset** were off by 15 min on average (up to 49) in Iceland; now within 1 min of the US Naval Observatory (compact Meeus ephemeris, topocentric horizon).
+- **Times follow the location's timezone**, not the phone's (new `/api/timezone`).
+- **Disagreeing cloud models** are no longer averaged: the nearest IMO ceilometer decides.
+- **Emergency number** is 911 in Canada/Alaska, 112 elsewhere.
+- **Map timeline glitch**: thumb follows the finger; cloud layer cached, pre-rendered and encoded off the main thread (blocking during a drag 49.8 s → 1.7 s).
+- Midnight sun: "Too bright for aurora · Dark skies return around <date>".
+- Text crowding across sheets; tiny-screen layout; toast over the header; camera images stuck loading; place names outside Iceland; Night Vision contrast; 44 px tap targets; stacked/nested backdrop blurs; reduced transparency really removes blur.
+
+### Added
+- **Apple-Weather-style detail sheets**: tap the score ("Why this score?" with the actual formula), Cloud, Kp, Bz, solar wind speed and density for a draggable timeline with Now / Highest / Lowest and plain-English Q&A.
+- **Live video in the app** for streams whose owners allow embedding (explore.org Northern Lights Cam, Churchill). Availability checked hourly; falls back to a link. Nothing loads from YouTube until you tap play.
+- **More regions**: 12 bases in Norway, Sweden, Finland, Greenland, Canada and Alaska.
+- **Score on the app icon** (App Badging API), also updated by alerts.
+- **Share the 5-night outlook** as a story card.
+- **Beta feedback with screenshot** (Settings → App), shown on `/admin`.
+- Photographer mode: step-by-step night settings for iPhone, Pixel, Samsung.
+- Map legend in Layers; camera markers hidden at country zoom.
+
+### Changed
+- Onboarding is 2 cards (location on the first); its funnel stays on the phone unless analytics is switched on.
+- Draw-in animations shortened to 0.7–0.9 s; detail sheets load on first open (first-load JS 197 KB gzip).
+
 ## 1.2.0 — Auto-update (2026-11-03)
 
 - The app now updates itself: it checks for a new version every 30 minutes, when it comes back to the foreground and
