@@ -61,6 +61,7 @@ export const UP2 = {
     `${openMeteoHost()}/v1/forecast?latitude=${pts.map((p) => p.lat).join(',')}&longitude=${pts.map((p) => p.lon).join(',')}${openMeteoKey()}` +
     '&current=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&timezone=GMT',
   kp1m: 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json',
+  tz: (lat: number, lon: number) => `${openMeteoHost()}/v1/forecast?latitude=${lat}&longitude=${lon}${openMeteoKey()}&timezone=auto&forecast_days=1&daily=sunrise`,
   kp27: 'https://services.swpc.noaa.gov/text/27-day-outlook.txt',
   clouds6: (lat: number, lon: number) =>
     `${openMeteoHost()}/v1/forecast?latitude=${lat}&longitude=${lon}${openMeteoKey()}&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&forecast_days=6&timezone=GMT`,
@@ -527,6 +528,23 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   app.get('/api/admin/telemetry', (c) => (authed(c) ? c.json({ data: { events: telemetry.get(), crashes: crashes.get().slice(-50).reverse() } }) : c.json({ error: 'not found' }, 404)));
 
   // ───────── 5-night outlook ─────────
+  // IANA timezone for a place, so times show in the location's local time (Apple-Weather
+  // style), not the phone's. Bug fix: a phone set to New York showed Iceland's moonset as 11:09.
+  app.get('/api/timezone', async (c) => {
+    const ll = ctx.parseLatLon((k) => c.req.query(k));
+    if (!ll) return c.json({ error: 'lat and lon required' }, 400);
+    // timezones don't care about 5 km: snap to 0.5° so nearby users share one cache entry
+    const la = Math.round(ll.lat * 2) / 2;
+    const lo = Math.round(ll.lon * 2) / 2;
+    try {
+      const r = await fetcher.get('open-meteo-tz', UP2.tz(la, lo), (raw) => parseTimezone(raw), `${la},${lo}`);
+      c.header('Cache-Control', 'public, max-age=86400');
+      return c.json({ data: r.value, meta: { generatedAt: now().toISOString(), sources: [ctx.meta("open-meteo-tz", { status: "fulfilled", value: r })] } });
+    } catch {
+      return c.json({ data: { timezone: null, utcOffsetSec: null }, meta: { generatedAt: now().toISOString(), sources: [] } });
+    }
+  });
+
   app.get('/api/outlook', async (c) => {
     const ll = ctx.parseLatLon((k) => c.req.query(k));
     if (!ll) return c.json({ error: 'lat and lon required' }, 400);
@@ -1009,4 +1027,11 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     stores: { subs, sightings, scoreLog, outcomes, plans, telemetry, crashes },
     frames,
   };
+}
+
+/** Open-Meteo `timezone=auto` response → IANA zone. */
+export function parseTimezone(raw: unknown): { timezone: string | null; utcOffsetSec: number | null } {
+  const o = (raw ?? {}) as { timezone?: unknown; utc_offset_seconds?: unknown };
+  const tz = typeof o.timezone === 'string' && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(o.timezone) && o.timezone !== 'GMT' ? o.timezone : null;
+  return { timezone: tz, utcOffsetSec: typeof o.utc_offset_seconds === 'number' ? o.utc_offset_seconds : null };
 }

@@ -5,7 +5,7 @@ import { NightTimeline } from '../components/NightTimeline';
 import { spring } from '../design/tokens';
 import type { Conditions } from '../lib/conditions';
 import { bzFactor, cloudFactor, kpFactor, levelColor, moonFactor, speedFactor } from '../lib/explain';
-import { hhmm, temp, whenDay, wind } from '../lib/format';
+import { displayTimeZone, hhmm, temp, timeZoneDiffers, whenDay, wind } from '../lib/format';
 import { useReducedMotionPref, useSettings } from '../lib/store';
 import { Sheet } from '../ui/Sheet';
 import { StatHeader } from '../ui/StatPill';
@@ -159,6 +159,7 @@ export function MoonSheet({ c, open, onClose }: { c: Conditions; open: boolean; 
   const m = c.plan.moon;
   const f = moonFactor(m.illumination, m.altitudeDeg);
   const p = c.plan;
+  const place = useSettings((s) => s.location.label);
   return (
     <Sheet open={open} onClose={onClose} title="Moon & darkness" header={<StatHeader id="moon" icon={Moon} label={m.phaseName} value={`${Math.round(m.illumination * 100)}% lit`} />}>
       <p className="text-[15px] leading-relaxed text-ink-2">{f.sentence}</p>
@@ -182,7 +183,10 @@ export function MoonSheet({ c, open, onClose }: { c: Conditions; open: boolean; 
       <div className="mt-6">
         <NightTimeline plan={p} clouds={c.clouds.data?.data.hourly ?? []} illumination={m.illumination} />
       </div>
-      <p className="mt-4 text-[12px] text-ink-3">Computed on your phone — works offline.</p>
+      <p className="mt-4 text-[12px] text-ink-3">
+        Worked out on your phone, so it works offline. Moon times match the US Naval Observatory to within a minute.
+        {timeZoneDiffers() && ` Times are local to ${place} (${displayTimeZone()}).`}
+      </p>
     </Sheet>
   );
 }

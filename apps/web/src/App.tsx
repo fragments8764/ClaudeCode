@@ -13,7 +13,8 @@ import { useCloudGaps } from './lib/gaps';
 import { startTelemetry, track } from './lib/telemetry';
 import { useFeatures } from './lib/features';
 import { speak } from './lib/voice';
-import { useNowcast } from './lib/api';
+import { useNowcast, useTimeZone } from './lib/api';
+import { setDisplayTimeZone } from './lib/format';
 import { PlanViewer } from './screens/PlanViewer';
 import { startLiveLocation } from './lib/plan';
 import type { RankedSpot } from '@nordurljos/core';
@@ -114,6 +115,10 @@ export default function App() {
   const reduced = useReducedMotionPref();
   const online = useOnline();
   const t = useT();
+  // Location-local times everywhere (set before children render; idempotent)
+  const here = useSettings((s) => s.location);
+  const tzName = useTimeZone(here.lat, here.lon).data?.data.timezone ?? null;
+  setDisplayTimeZone(tzName);
   const c = useConditions();
   const route = useHashRoute();
   const [sheet, setSheet] = useState<SheetId | null>(null);

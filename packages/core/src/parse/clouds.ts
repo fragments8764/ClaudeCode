@@ -104,6 +104,32 @@ export interface CloudConsensus {
   spread: number | null;
   perSource: { source: CloudForecast['source']; current: CloudLayers | null }[];
   hourly: CloudLayers[];
+  /** Set when a nearby real observation settled a disagreement between the models. */
+  observed?: { name: string; distanceKm: number; time: string; percent: number; picked: CloudForecast['source'] } | null;
+}
+
+export interface NearbyCloudObservation {
+  name: string;
+  distanceKm: number;
+  time: string;
+  /** lowest-layer cloud amount, oktas 0–8 (IMO ceilometer) */
+  oktas: number;
+}
+
+/**
+ * When the two models disagree badly (spread > 35, "low" confidence), averaging them hides
+ * the truth (audit: Reykjavík showed 61 % while Open-Meteo said 91 % and MET Norway 31 %).
+ * If a ceilometer within 40 km reported in the last 90 min, trust the model closest to it.
+ */
+export function arbitrateClouds(c: CloudConsensus, obs: NearbyCloudObservation | null, now: Date): CloudConsensus {
+  if (c.confidence !== 'low' || !obs || obs.distanceKm > 40) return c;
+  if (now.getTime() - Date.parse(obs.time) > 90 * 60_000) return c;
+  const percent = Math.round((obs.oktas / 8) * 100);
+  const cands = c.perSource.filter((p) => p.current?.total != null);
+  if (cands.length < 2) return c;
+  const pick = cands.reduce((a, b) => (Math.abs(a.current!.total! - percent) <= Math.abs(b.current!.total! - percent) ? a : b));
+  const current = pick.current!;
+  return { ...c, current, effective: effectiveCloud(current), confidence: 'medium', observed: { name: obs.name, distanceKm: obs.distanceKm, time: obs.time, percent, picked: pick.source } };
 }
 
 const avg = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.round((a + b) / 2));

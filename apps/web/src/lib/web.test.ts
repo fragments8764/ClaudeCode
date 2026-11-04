@@ -57,3 +57,25 @@ describe('auto-update timing', () => {
   it('waits while you are actively using the app', () => expect(shouldApply({ ...base, idleMs: 3_000 })).toBe(false));
   it('applies at once after a manual check', () => expect(shouldApply({ ...base, safe: false, idleMs: 0, force: true })).toBe(true));
 });
+
+import { hhmm, setDisplayTimeZone, whenDay } from './format';
+describe('location-local times (regression: phone in New York showed Iceland times in EST)', () => {
+  it('formats in the location zone, not the phone zone', () => {
+    setDisplayTimeZone('Atlantic/Reykjavik');
+    expect(hhmm('2026-11-04T16:09:00Z')).toBe('16:09');
+    setDisplayTimeZone('America/New_York');
+    expect(hhmm('2026-11-04T16:09:00Z')).toBe('11:09');
+  });
+  it('"tomorrow" is judged by the location calendar day', () => {
+    setDisplayTimeZone('Atlantic/Reykjavik');
+    const now = new Date('2026-11-04T23:30:00Z');
+    expect(whenDay('2026-11-05T00:30:00Z', now)).toBe('tomorrow 00:30');
+    setDisplayTimeZone('America/New_York'); // still 4 Nov evening there
+    expect(whenDay('2026-11-05T00:30:00Z', now)).toBe('19:30');
+  });
+  it('ignores an invalid zone instead of crashing', () => {
+    setDisplayTimeZone('Not/AZone');
+    expect(() => hhmm('2026-11-04T16:09:00Z')).not.toThrow();
+    setDisplayTimeZone(null);
+  });
+});

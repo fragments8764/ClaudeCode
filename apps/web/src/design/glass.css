@@ -62,6 +62,27 @@
   display: none;
 }
 
+/* Perf: glass inside glass never needs its own backdrop pass — the parent already blurred
+   what's behind it (audit: 22 nested backdrop-filters on the Cameras tab). */
+.glass .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Reduced transparency must drop the backdrop pass entirely: blur(0) saturate(170%) still
+   costs a full offscreen pass per element (audit finding). */
+:root[data-transparency='reduced'] .glass,
+:root[data-transparency='reduced'] .glass-refract {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) .glass,
+  :root:not([data-transparency='full']) .glass-refract {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 /* Refraction (Chromium supports url() in backdrop-filter; others ignore this rule). */
 :root[data-refract]:not([data-power='low']):not([data-transparency='reduced']) .glass-refract {
   -webkit-backdrop-filter: url(#lg-refract) blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -110,11 +131,21 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.1);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  /* (MapLibre makes markers position:absolute, which also anchors the ::before hit area) */
+  /* solid-ish fill instead of a backdrop blur: the map had 52 blurred markers, each an
+     extra GPU pass on every pan/zoom frame */
+  background: rgb(40 52 70 / 0.78);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 4px 12px rgb(0 0 0 / 0.5);
   cursor: pointer;
+}
+/* 44 px touch target around the 26–30 px visual markers */
+.map-pin::before,
+.map-cam::before,
+.map-live::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
 }
 .map-pin-dot {
   width: 8px;
@@ -145,10 +176,12 @@
   place-items: center;
   border-radius: 10px;
   color: var(--c-text);
-  background: rgb(10 16 30 / 0.55);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgb(10 16 30 / 0.82);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 4px 12px rgb(0 0 0 / 0.5);
+}
+.map-cam::before {
+  inset: -7px;
+  border-radius: 14px;
 }
 .map-me {
   width: 16px;
@@ -194,3 +227,8 @@
 .map-live.verified { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.85), 0 0 16px rgb(74 222 128 / 0.9); }
 :root[data-mode='night'] .map-live { background: radial-gradient(circle, #d63a3a 0 35%, rgb(214 58 58 / 0.35) 36% 100%); box-shadow: 0 0 12px rgb(214 58 58 / 0.7); }
 @media (prefers-reduced-motion: reduce) { .map-live::after { animation: none; } }
+
+/* Country-level zoom: hide camera markers so spot pins stay readable (see MapScreen declutter) */
+.map-far .map-cam {
+  visibility: hidden;
+}

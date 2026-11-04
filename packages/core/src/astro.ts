@@ -1,4 +1,5 @@
 import SunCalc from 'suncalc';
+import { moonAltitudeDeg } from './moon';
 import type { DarknessLevel } from './types';
 
 /**
@@ -77,7 +78,8 @@ export function moonState(date: Date, lat: number, lon: number): MoonState {
   const pos = SunCalc.getMoonPosition(date, lat, lon);
   const ill = SunCalc.getMoonIllumination(date);
   return {
-    altitudeDeg: pos.altitude * RAD,
+    // accurate topocentric altitude (0 = rising/setting); SunCalc only for bearing & phase
+    altitudeDeg: moonAltitudeDeg(date, lat, lon),
     bearingDeg: toBearing(pos.azimuth),
     illumination: ill.fraction,
     phase: ill.phase,
@@ -118,7 +120,7 @@ export function sampleSky(from: Date, lat: number, lon: number, hours = 24, step
     out.push({
       time: t.toISOString(),
       sunAlt: sunAltitudeDeg(t, lat, lon),
-      moonAlt: SunCalc.getMoonPosition(t, lat, lon).altitude * RAD,
+      moonAlt: moonAltitudeDeg(t, lat, lon),
     });
   }
   return out;
@@ -221,4 +223,21 @@ export function planNight(now: Date, lat: number, lon: number, hours = 24, stepM
     darkNow: darkPred(first),
     samples,
   };
+}
+
+/**
+ * First date (from `from`) whose night gets dark enough for aurora (sun below -12°), checked
+ * at local solar midnight. Used in the light season so the app can say "Dark skies return
+ * on 9 Aug" instead of a misleading "Wait for darkness". null if none within `maxDays`.
+ */
+export function nextDarkNight(from: Date, lat: number, lon: number, maxDays = 150): Date | null {
+  // solar midnight ≈ 00:00 UTC − lon/15 h
+  const base = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()) - (lon / 15) * 3.6e6;
+  for (let d = 0; d <= maxDays; d++) {
+    const t = new Date(base + d * 864e5 + (d === 0 && base < from.getTime() - 12 * 3.6e6 ? 864e5 : 0));
+    // check ±30 min around solar midnight (equation of time ≤ ~16 min)
+    const alt = Math.min(...[-30, 0, 30].map((m) => sunAltitudeDeg(new Date(t.getTime() + m * 6e4), lat, lon)));
+    if (alt <= AURORA_DARK_ALTITUDE) return t;
+  }
+  return null;
 }

@@ -18,6 +18,7 @@ import { haptic } from '../lib/haptics';
 import { useReducedMotionPref, useSettings, type MapLayers } from '../lib/store';
 import { nightGeoJSON, renderClouds, renderOvation } from '../map/render';
 import { preciseOnce } from '../hooks/useGeolocation';
+import { dateLabel, hhmm } from '../lib/format';
 import { TimeScrubber } from '../map/TimeScrubber';
 import { BestSpotSheet, SpotSheet } from '../sheets/SpotSheets';
 import { Press } from '../ui/Button';
@@ -131,6 +132,10 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
     });
     m.touchZoomRotate.disableRotation();
     map.current = m;
+    // Declutter: camera markers only from zoom 7 (audit: at country zoom they buried the spots)
+    const declutter = () => m.getContainer().classList.toggle('map-far', m.getZoom() < 7);
+    m.on('zoomend', declutter);
+    declutter();
     m.on('load', () => {
       // Calm, muted base: darken background/water, soften labels.
       for (const l of m.getStyle().layers ?? []) {
@@ -451,7 +456,7 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
   }, [c.now, location.lat, location.lon]);
 
   const windowEnd = c.best?.end ?? c.plan.darkEnd;
-  const atLabel = offset === 0 ? 'right now' : at.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  const atLabel = offset === 0 ? 'right now' : `${dateLabel(at, { weekday: 'short' })} ${hhmm(at.toISOString())}`;
 
   return (
     <div className="fixed inset-0" style={{ zIndex: 'var(--z-content)' }}>

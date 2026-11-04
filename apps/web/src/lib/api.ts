@@ -134,6 +134,15 @@ export function useRoute(from: { lat: number; lon: number }, to: { lat: number; 
   return usePersistedQuery<Envelope<Corridor>>(`route:${f}:${t}`, `/api/route?fromLat=${snap(from.lat)}&fromLon=${snap(from.lon)}&toLat=${to?.lat}&toLon=${to?.lon}`, 10 * 60_000, !!to);
 }
 
+/** IANA timezone of a place (cached for days; times then render in the place's local time). */
+export function useTimeZone(lat: number, lon: number) {
+  return usePersistedQuery<Envelope<{ timezone: string | null; utcOffsetSec: number | null }>>(
+    `tz:${Math.round(lat * 2) / 2},${Math.round(lon * 2) / 2}`,
+    `/api/timezone?lat=${snap(lat)}&lon=${snap(lon)}`,
+    24 * 3600_000,
+  );
+}
+
 export function useOutlook(lat: number, lon: number, astro: boolean, enabled = true) {
   return usePersistedQuery<Envelope<{ location: { lat: number; lon: number }; nights: NightOutlook[] }>>(
     `outlook:${snap(lat)},${snap(lon)}:${astro ? 'a' : 'n'}`,

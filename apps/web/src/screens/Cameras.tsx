@@ -203,7 +203,7 @@ export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: strin
               haptic('select');
               setFilter(k);
             }}
-            className={`glass pill min-h-[40px] shrink-0 px-4 text-[13px] ${filter === k ? 'shadow-[inset_0_0_0_1px_rgb(var(--aurora-rgb)/0.6)]' : 'text-ink-2'}`}
+            className={`glass pill min-h-[44px] shrink-0 px-4 text-[13px] ${filter === k ? 'shadow-[inset_0_0_0_1px_rgb(var(--aurora-rgb)/0.6)]' : 'text-ink-2'}`}
           >
             {l}
           </button>
@@ -244,7 +244,7 @@ export function CamerasScreen({ openId, setOpenId, onClearNow }: { openId: strin
                   onClick={() => toggleFav(cam.id)}
                   aria-label={favorites.includes(cam.id) ? `Remove ${cam.name} from favourites` : `Add ${cam.name} to favourites`}
                   aria-pressed={favorites.includes(cam.id)}
-                  className="absolute right-1.5 top-1.5 grid h-10 w-10 place-items-center rounded-full bg-[rgb(0_0_0/0.35)] backdrop-blur"
+                  className="absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full bg-[rgb(0_0_0/0.45)]"
                 >
                   <Star size={16} strokeWidth={1.75} className={favorites.includes(cam.id) ? 'fill-[rgb(var(--aurora-rgb))] text-[rgb(var(--aurora-rgb))]' : 'text-ink'} aria-hidden />
                 </button>

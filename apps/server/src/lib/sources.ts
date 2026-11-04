@@ -233,6 +233,16 @@ export const SOURCES = {
     staleMs: 12 * 60 * MIN,
     timeoutMs: 10000,
   },
+  'open-meteo-tz': {
+    id: 'open-meteo-tz',
+    provider: 'Open-Meteo',
+    name: 'Open-Meteo timezone lookup',
+    attribution: 'Weather data by Open-Meteo.com (CC BY 4.0)',
+    homepage: 'https://open-meteo.com/',
+    ttlMs: 30 * 24 * 60 * MIN,
+    staleMs: 365 * 24 * 60 * MIN,
+    timeoutMs: 8000,
+  },
 } satisfies Record<string, SourceDef>;
 
 export type SourceId = keyof typeof SOURCES;

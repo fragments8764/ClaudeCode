@@ -24,7 +24,7 @@ export interface PressProps extends Omit<HTMLMotionProps<'button'>, 'children'> 
 export function Press({ children, className = '', radius = 'pill', hapticKind = 'tap', variant = 'glass', onPointerDown, onClick, style, ...rest }: PressProps) {
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const base =
-    variant === 'glass' ? 'glass' : variant === 'accent' ? 'bg-[rgb(var(--aurora-rgb))] text-[color:var(--c-base-0)] font-medium shadow-[var(--glow)]' : '';
+    variant === 'glass' ? 'glass' : variant === 'accent' ? 'bg-[rgb(var(--aurora-rgb))] text-[color:var(--c-on-accent)] font-medium shadow-[var(--glow)]' : '';
   return (
     <motion.button
       whileTap={{ scale: PRESS_SCALE }}

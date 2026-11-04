@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import { ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Gauge, History, Lightbulb, LayoutGrid, MapPin, MessageCircleQuestion, Moon, ShieldCheck, SlidersHorizontal, TriangleAlert, CloudSun } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { spring, STAGGER } from '../design/tokens';
 import { Freshness } from '../components/Freshness';
 import { DEMO, DEMO_NAME, type Conditions } from '../lib/conditions';
 import { cloudFactor, kpFactor, levelColor } from '../lib/explain';
-import { hhmm, until } from '../lib/format';
+import { dateLabel, hhmm, until } from '../lib/format';
+import { nextDarkNight } from '@nordurljos/core';
 import { haptic } from '../lib/haptics';
 import { useT } from '../lib/i18n';
 import { chime } from '../lib/sound';
@@ -56,7 +57,7 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
     return () => removeEventListener('resize', on);
   }, []);
   const short = vh < 760;
-  const ringSize = vh < 700 ? 196 : short ? 228 : 264;
+  const ringSize = vh < 620 ? 156 : vh < 700 ? 196 : short ? 228 : 264;
   const prev = useRef(s?.verdict);
   useEffect(() => {
     if (s?.verdict === 'go' && prev.current && prev.current !== 'go') {
@@ -68,7 +69,11 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
   }, [s?.verdict, chimeOn]);
 
   let sub = s ? t(s.limitingLabel ? `limit.${s.limitingLabel}` : 'limit.none') : t('reading');
-  if (s?.verdict === 'wait-dark') sub = c.plan.noDarkness ? t('dark.none') : c.plan.darkStart ? t('dark.from', { t: hhmm(c.plan.darkStart) }) : sub;
+  // Light season: say when dark skies come back instead of a misleading "wait for darkness"
+  const darkReturns = useMemo(() => (c.plan.noDarkness ? nextDarkNight(c.now, location.lat, location.lon) : null), [c.plan.noDarkness, c.now, location.lat, location.lon]);
+  if (s?.verdict === 'wait-dark')
+    sub = c.plan.noDarkness ? (darkReturns ? t('dark.returns', { d: dateLabel(darkReturns, { day: 'numeric', month: 'long' }) }) : t('dark.none')) : c.plan.darkStart ? t('dark.from', { t: hhmm(c.plan.darkStart) }) : sub;
+  const verdictText = s ? (s.verdict === 'wait-dark' && c.plan.noDarkness ? t('verdict.bright') : t(`verdict.${s.verdict}`)) : ' ';
 
   // Never show stale data as live
   const metas = [...(c.sw.data?.meta.sources ?? []), ...(c.clouds.data?.meta.sources ?? []), ...(c.aurora.data?.meta.sources ?? [])];

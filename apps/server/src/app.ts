@@ -4,7 +4,10 @@ import { compress } from 'hono/compress';
 import {
   bestWindow,
   bucketAverage,
+  arbitrateClouds,
   combineClouds,
+  haversineKm,
+  parseCeilometer,
   computeScore,
   hourlyOutlook,
   isValidLatLon,
@@ -31,7 +34,7 @@ import {
 import { Fetcher, type FetchResult } from './lib/fetcher';
 import { openMeteoHost, openMeteoKey, SOURCES, type SourceId } from './lib/sources';
 import { ConfigLoader, type CameraDef, type FeatureFlag } from './lib/config';
-import { registerExtras, type SendPush } from './routes/extras';
+import { registerExtras, UP2, type SendPush } from './routes/extras';
 import type { Spot, Weights } from '@nordurljos/core';
 
 export const UPSTREAM = {
@@ -202,7 +205,16 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
     if (!omv && !mnv) return { data: null, sources };
     // A cached MET Norway parse may be up to TTL old; recompute "current" relative to now.
     const metNoNow = mnv ? { ...mnv, current: nearest(mnv.hourly, now()) } : null;
-    const consensus = combineClouds([omv?.clouds ?? null, metNoNow]);
+    let consensus = combineClouds([omv?.clouds ?? null, metNoNow]);
+    if (consensus.confidence === 'low') {
+      // models disagree: let the nearest IMO ceilometer decide (cached feed, Iceland only)
+      const [obs, st] = await Promise.allSettled([fetcher.get('imo-obs', UP2.ceilo, (x) => x), fetcher.get('imo-stations', UP2.imoStations, (x) => x)]);
+      const near = parseCeilometer(val(obs), val(st))
+        .filter((o) => o.oktas != null)
+        .map((o) => ({ name: o.name, time: o.time, oktas: o.oktas!, distanceKm: Math.round(haversineKm({ lat, lon }, o)) }))
+        .sort((a, b) => a.distanceKm - b.distanceKm)[0];
+      consensus = arbitrateClouds(consensus, near ?? null, now());
+    }
     const tIso = new Date(now().getTime() - 3.6e6).toISOString();
     return {
       data: {

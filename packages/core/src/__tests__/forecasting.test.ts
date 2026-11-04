@@ -84,3 +84,28 @@ describe('outlook edge cases', () => {
     expect(out[0]!.best).toBe(false);
   });
 });
+
+import { arbitrateClouds, combineClouds } from '../parse/clouds';
+describe('cloud disagreement (regression: 91 % vs 31 % averaged to a misleading 61 %)', () => {
+  const t = '2026-11-04T20:00:00.000Z';
+  const L = (total: number) => ({ time: t, total, low: total, mid: 0, high: 0 });
+  const c = combineClouds([
+    { source: 'open-meteo', current: L(91), hourly: [] },
+    { source: 'met-norway', current: L(31), hourly: [] },
+  ] as never);
+  const now = new Date('2026-11-04T20:10:00Z');
+  it('flags the disagreement', () => {
+    expect(c.confidence).toBe('low');
+    expect(c.spread).toBe(60);
+  });
+  it('a nearby ceilometer picks the model that matches reality', () => {
+    const r = arbitrateClouds(c, { name: 'Reykjavík', distanceKm: 3, time: '2026-11-04T20:00:00Z', oktas: 7 }, now);
+    expect(r.current!.total).toBe(91);
+    expect(r.observed!.picked).toBe('open-meteo');
+    expect(r.confidence).toBe('medium');
+  });
+  it('ignores far or old observations', () => {
+    expect(arbitrateClouds(c, { name: 'x', distanceKm: 80, time: '2026-11-04T20:00:00Z', oktas: 0 }, now).current!.total).toBe(61);
+    expect(arbitrateClouds(c, { name: 'x', distanceKm: 5, time: '2026-11-04T16:00:00Z', oktas: 0 }, now).current!.total).toBe(61);
+  });
+});

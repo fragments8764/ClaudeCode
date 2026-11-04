@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { CalendarDays, Moon, Star } from 'lucide-react';
 import { rgb, scoreColor, spring } from '../design/tokens';
 import { useOutlook } from '../lib/api';
-import { hhmm } from '../lib/format';
+import { dateLabel, hhmm } from '../lib/format';
 import { useSettings } from '../lib/store';
 import { Glass } from '../ui/Glass';
 import { Sheet } from '../ui/Sheet';
@@ -14,7 +14,7 @@ export function OutlookSheet({ open, onClose }: { open: boolean; onClose: () => 
   const q = useOutlook(location.lat, location.lon, minDarkness === 'astronomical', open);
   const nights = q.data?.data.nights ?? [];
   const best = nights.find((n) => n.best);
-  const day = (d: string, i: number) => (i === 0 ? 'Tonight' : i === 1 ? 'Tomorrow' : new Date(`${d}T12:00:00Z`).toLocaleDateString([], { weekday: 'long' }));
+  const day = (d: string, i: number) => (i === 0 ? 'Tonight' : i === 1 ? 'Tomorrow' : dateLabel(new Date(`${d}T12:00:00Z`), { weekday: 'long' }));
   return (
     <Sheet open={open} onClose={onClose} title="5-night outlook" initial="full" detents={['half', 'full']} header={<StatHeader id="outlook" icon={CalendarDays} label={`5-night outlook · ${location.label}`} value={best ? `Best: ${day(best.date, nights.indexOf(best))}` : q.isLoading ? '…' : 'No good night yet'} />}>
       {q.isError && !nights.length && <p className="text-[15px] text-poor">Outlook unavailable right now.</p>}

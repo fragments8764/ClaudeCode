@@ -9,6 +9,8 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'verdict.bright': 'Too bright for aurora',
+  'dark.returns': 'Dark skies return around {d}',
   'tools.g.plan': 'Plan tonight',
   'tools.g.field': 'Out in the field',
   'tools.g.more': 'Share, learn & status',
@@ -114,6 +116,8 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'verdict.bright': 'Of bjart fyrir norðurljós',
+  'dark.returns': 'Dimmir aftur um {d}',
   'tools.g.plan': 'Skipuleggðu kvöldið',
   'tools.g.field': 'Úti á vettvangi',
   'tools.g.more': 'Deila, læra og staða',
@@ -218,6 +222,8 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'verdict.bright': 'Zu hell für Polarlichter',
+  'dark.returns': 'Dunkle Nächte ab etwa {d}',
   'tools.g.plan': 'Heute planen',
   'tools.g.field': 'Unterwegs',
   'tools.g.more': 'Teilen, lernen & Status',
@@ -322,6 +328,8 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'verdict.bright': 'Trop clair pour les aurores',
+  'dark.returns': 'Retour des nuits noires vers le {d}',
   'tools.g.plan': 'Préparer la nuit',
   'tools.g.field': 'Sur le terrain',
   'tools.g.more': 'Partager, apprendre & état',
@@ -426,6 +434,8 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'verdict.bright': '太亮，看不到极光',
+  'dark.returns': '约 {d} 起恢复夜空',
   'tools.g.plan': '规划今晚',
   'tools.g.field': '户外实用',
   'tools.g.more': '分享、学习与状态',
@@ -530,6 +540,8 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'verdict.bright': '明るすぎてオーロラは見えません',
+  'dark.returns': '{d}ごろに暗い夜が戻ります',
   'tools.g.plan': '今夜の計画',
   'tools.g.field': '現地で',
   'tools.g.more': '共有・学ぶ・状態',

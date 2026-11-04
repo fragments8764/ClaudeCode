@@ -69,3 +69,15 @@ describe('feature flags', () => {
     expect(rules.every((t) => t === 'score' || t === 'kp')).toBe(true);
   });
 });
+
+import { parseTimezone } from './routes/extras';
+describe('timezone lookup', () => {
+  it('reads the IANA zone from Open-Meteo timezone=auto', () => {
+    expect(parseTimezone({ timezone: 'Atlantic/Reykjavik', utc_offset_seconds: 0 })).toEqual({ timezone: 'Atlantic/Reykjavik', utcOffsetSec: 0 });
+    expect(parseTimezone({ timezone: 'America/Argentina/Buenos_Aires', utc_offset_seconds: -10800 }).timezone).toBe('America/Argentina/Buenos_Aires');
+  });
+  it('rejects junk', () => {
+    expect(parseTimezone({ timezone: '<script>' }).timezone).toBeNull();
+    expect(parseTimezone(null)).toEqual({ timezone: null, utcOffsetSec: null });
+  });
+});
