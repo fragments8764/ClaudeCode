@@ -39,6 +39,16 @@ function cloudTag(v: number | null) {
 function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; frameSrc?: string | null }) {
   const [tick, setTick] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  // Bug fix: a failed image used to leave a shimmering skeleton forever. Now: an honest
+  // "offline" state, automatic retries (30 s, 60 s, 120 s…) and a manual retry.
+  const [failed, setFailed] = useState(0);
+  useEffect(() => {
+    if (!failed || failed > 4) return;
+    const id = setTimeout(() => (setFailed(0), setLoaded(false), setTick((t) => t + 1)), 30_000 * 2 ** (failed - 1));
+    return () => clearTimeout(id);
+  }, [failed]);
+  const retry = () => (setFailed(0), setLoaded(false), setTick((t) => t + 1));
+  const onImgError = () => setFailed((n) => n + 1);
   const saver = useSettings((s) => s.batterySaver);
   useEffect(() => {
     if (saver) return; // battery saver pauses camera feeds
@@ -49,8 +59,9 @@ function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; fra
   if (cam.embed === 'video' && cam.poster && !big) {
     return (
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-black">
-        {!loaded && <div className="skeleton absolute inset-0 rounded-none" />}
-        <img src={apiUrl(`${cam.poster}?t=${tick}`)} alt={`Live video from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+        {!loaded && !failed && <div className="skeleton absolute inset-0 rounded-none" />}
+        {failed > 0 && <Offline onRetry={big ? retry : undefined} />}
+        <img src={apiUrl(`${cam.poster}?t=${tick}`)} alt={`Live video from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={onImgError} className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
         <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[rgb(0_0_0/0.55)] px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider">
           <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" aria-hidden /> Live video
         </span>
@@ -76,8 +87,9 @@ function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; fra
   const src = frameSrc ?? apiUrl(`${cam.image}?t=${tick}`);
   return (
     <div className={`relative h-full w-full overflow-hidden bg-black ${big ? '' : 'aspect-[4/3]'}`}>
-      {!loaded && <div className="skeleton absolute inset-0 rounded-none" />}
-      <img src={src} alt={`Latest image from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} className={`h-full w-full ${big ? 'object-contain' : 'object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+      {!loaded && !failed && <div className="skeleton absolute inset-0 rounded-none" />}
+      {failed > 0 && <Offline onRetry={big ? retry : undefined} />}
+      <img src={src} alt={`Latest image from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={onImgError} className={`h-full w-full ${big ? 'object-contain' : 'object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
     </div>
   );
 }
@@ -113,6 +125,25 @@ function VideoPlayer({ cam }: { cam: Camera }) {
       allowFullScreen
       referrerPolicy="strict-origin-when-cross-origin"
     />
+  );
+}
+
+function Offline({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <div className="absolute inset-0 z-10 grid place-items-center bg-[rgb(0_0_0/0.6)] text-center">
+      <div>
+        <div className="text-[12px] text-ink-2">{onRetry ? 'Camera not responding' : 'Not responding · retrying'}</div>
+        {onRetry && <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRetry();
+          }}
+          className="mt-1 min-h-[44px] px-3 text-[13px] font-medium underline underline-offset-4"
+        >
+          Try again
+        </button>}
+      </div>
+    </div>
   );
 }
 

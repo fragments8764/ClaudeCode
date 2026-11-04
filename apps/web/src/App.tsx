@@ -22,8 +22,6 @@ import { stats, useJournal } from './lib/journal';
 import { shareFile } from './lib/share';
 import { setPadIntensity, startPad, stopPad } from './lib/sound';
 import { applyPrefs, useReducedMotionPref, useSettings, type Tab } from './lib/store';
-import { ActivitySheet, CloudSheet, MoonSheet } from './sheets/DetailSheets';
-import { BzSheet, DensitySheet, ScoreSheet, SpeedSheet } from './sheets/MetricSheets';
 import { ClearNowSheet } from './sheets/ClearNowSheet';
 import { LocationSheet } from './sheets/LocationSheet';
 import { SafetySheet } from './sheets/SafetySheet';
@@ -38,6 +36,8 @@ import { Onboarding } from './ui/Onboarding';
 import { TabBar } from './ui/TabBar';
 
 const MapScreen = lazy(() => import('./screens/MapScreen'));
+/** detail sheets mount on first open (lazy chunk, prefetched when idle) */
+const DETAIL = new Set(['cloud', 'activity', 'moon', 'score', 'bz', 'speed', 'density']);
 // Rarely-used tools are split out of the first load and prefetched when the browser is idle.
 const loaders = {
   photo: () => import('./sheets/PhotoSheet'),
@@ -59,7 +59,16 @@ const loaders = {
   privacy: () => import('./sheets/PrivacySheet'),
   sources: () => import('./sheets/SourcesSheet'),
   feedback: () => import('./sheets/FeedbackSheet'),
+  detail: () => import('./sheets/DetailSheets'),
+  metric: () => import('./sheets/MetricSheets'),
 };
+const CloudSheet = lazy(() => loaders.detail().then((m) => ({ default: m.CloudSheet })));
+const ActivitySheet = lazy(() => loaders.detail().then((m) => ({ default: m.ActivitySheet })));
+const MoonSheet = lazy(() => loaders.detail().then((m) => ({ default: m.MoonSheet })));
+const ScoreSheet = lazy(() => loaders.metric().then((m) => ({ default: m.ScoreSheet })));
+const BzSheet = lazy(() => loaders.metric().then((m) => ({ default: m.BzSheet })));
+const SpeedSheet = lazy(() => loaders.metric().then((m) => ({ default: m.SpeedSheet })));
+const DensitySheet = lazy(() => loaders.metric().then((m) => ({ default: m.DensitySheet })));
 const HealthSheet = lazy(() => loaders.health().then((m) => ({ default: m.HealthSheet })));
 const PrepareSheet = lazy(() => loaders.prepare().then((m) => ({ default: m.PrepareSheet })));
 const PlanSheet = lazy(() => loaders.plan().then((m) => ({ default: m.PlanSheet })));
@@ -219,7 +228,7 @@ export default function App() {
   const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
   const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
   useEffect(() => {
-    const want = [tool, sheet === 'settings' ? 'settings' : null, planFor ? 'plan' : null, extra, driving ? 'driving' : null, feedbackNight ? 'feedback' : null].filter((x): x is string => !!x);
+    const want = [tool, sheet === 'settings' ? 'settings' : null, sheet && DETAIL.has(sheet) ? sheet : null, planFor ? 'plan' : null, extra, driving ? 'driving' : null, feedbackNight ? 'feedback' : null].filter((x): x is string => !!x);
     const missing = want.filter((k) => !mounted.has(k));
     if (missing.length) setMounted((m) => new Set([...m, ...missing]));
   }, [tool, sheet, planFor, extra, driving, feedbackNight, mounted]);
@@ -333,7 +342,7 @@ export default function App() {
 
   // Onboarding brightens the sky as you progress
   const showOnb = !onboarded && route !== 'widget' && !route.startsWith('plan/');
-  const sky = useMemo(() => (showOnb ? { ...c.sky, intensity: 0.25 + onbStep * 0.3, speed: 0.6 + onbStep * 0.25 } : c.sky), [showOnb, onbStep, c.sky]);
+  const sky = useMemo(() => (showOnb ? { ...c.sky, intensity: 0.25 + onbStep * 0.6, speed: 0.6 + onbStep * 0.5 } : c.sky), [showOnb, onbStep, c.sky]);
 
   const planRoute = route.match(/^plan\/([0-9a-f]{6,40})(\?checkin=1)?/);
   if (planRoute) {
@@ -431,13 +440,15 @@ export default function App() {
 
           <TabBar tab={tab} onChange={go} />
 
-          <CloudSheet c={c} open={sheet === 'cloud'} onClose={close} />
-          <ActivitySheet c={c} open={sheet === 'activity'} onClose={close} />
-          <MoonSheet c={c} open={sheet === 'moon'} onClose={close} />
-          <ScoreSheet c={c} open={sheet === 'score'} onClose={close} />
-          <BzSheet c={c} open={sheet === 'bz'} onClose={close} />
-          <SpeedSheet c={c} open={sheet === 'speed'} onClose={close} />
-          <DensitySheet c={c} open={sheet === 'density'} onClose={close} />
+          <Suspense fallback={null}>
+            {hasMounted('cloud') && <CloudSheet c={c} open={sheet === 'cloud'} onClose={close} />}
+            {hasMounted('activity') && <ActivitySheet c={c} open={sheet === 'activity'} onClose={close} />}
+            {hasMounted('moon') && <MoonSheet c={c} open={sheet === 'moon'} onClose={close} />}
+            {hasMounted('score') && <ScoreSheet c={c} open={sheet === 'score'} onClose={close} />}
+            {hasMounted('bz') && <BzSheet c={c} open={sheet === 'bz'} onClose={close} />}
+            {hasMounted('speed') && <SpeedSheet c={c} open={sheet === 'speed'} onClose={close} />}
+            {hasMounted('density') && <DensitySheet c={c} open={sheet === 'density'} onClose={close} />}
+          </Suspense>
         </LayoutGroup>
       )}
 

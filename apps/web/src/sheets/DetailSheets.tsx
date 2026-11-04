@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Cloud, Gauge, Moon } from 'lucide-react';
 import { Freshness } from '../components/Freshness';
 import { NightTimeline } from '../components/NightTimeline';
-import { spring } from '../design/tokens';
+import { spring, springSoft } from '../design/tokens';
 import type { Conditions } from '../lib/conditions';
 import { bzFactor, cloudFactor, kpFactor, levelColor, moonFactor, speedFactor } from '../lib/explain';
 import { displayTimeZone, hhmm, temp, timeZoneDiffers, whenDay, wind } from '../lib/format';
@@ -39,7 +39,7 @@ function CloudGauge({ pct }: { pct: number | null }) {
         style={{ background: 'linear-gradient(to top, rgb(203 213 225 / 0.55), rgb(203 213 225 / 0.18))' }}
         initial={reduced ? false : { height: '0%' }}
         animate={{ height: `${v}%` }}
-        transition={{ type: 'spring', stiffness: 80, damping: 18 }}
+        transition={springSoft}
       >
         {!reduced && (
           <motion.div

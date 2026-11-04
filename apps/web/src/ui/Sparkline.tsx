@@ -53,7 +53,7 @@ export function Sparkline({
         </linearGradient>
       </defs>
       {zero !== undefined && <line x1={0} x2={W} y1={baseY} y2={baseY} stroke="rgb(255 255 255 / 0.14)" strokeDasharray="3 5" />}
-      <motion.path d={area} fill={`url(#f-${id})`} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.3 }} />
+      <motion.path d={area} fill={`url(#f-${id})`} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.15 }} />
       <motion.path
         d={d}
         fill="none"
@@ -63,7 +63,7 @@ export function Sparkline({
         strokeLinejoin="round"
         initial={reduced ? false : { pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       />
       <circle cx={x(li)} cy={y(lv)} r={9} fill={color} opacity={0.22} />
       <circle cx={x(li)} cy={y(lv)} r={3.5} fill={color} />

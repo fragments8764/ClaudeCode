@@ -516,8 +516,39 @@ export default function MapScreen({ c, openCamera, intent = null, clearIntent, o
         {(Object.keys(LAYER_LABELS) as (keyof MapLayers)[]).map((k) => (
           <Toggle key={k} label={LAYER_LABELS[k][0]} hint={LAYER_LABELS[k][1]} checked={mapLayers[k]} onChange={(v) => set('mapLayers', { ...mapLayers, [k]: v })} />
         ))}
-        <div className="flex items-center gap-2 pb-6 pt-3 text-[12px] text-ink-3">
-          <CamIcon size={14} strokeWidth={1.5} aria-hidden /> Tap a camera pin to open it. Map © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors.
+        <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">What you're seeing</h3>
+        <ul className="grid grid-cols-1 gap-2.5 text-[13px] text-ink-2">
+          <li className="flex items-center gap-3">
+            <span className="h-3 w-10 shrink-0 rounded-full" style={{ background: 'linear-gradient(90deg, rgb(74 222 128 / 0.2), rgb(74 222 128), rgb(45 212 191), rgb(244 114 182))' }} aria-hidden />
+            Aurora oval: green (likely) to pink (strong)
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="h-3 w-10 shrink-0 rounded-full" style={{ background: 'linear-gradient(90deg, transparent, rgb(176 188 206 / 0.7))' }} aria-hidden />
+            Cloud mist: thicker grey = more cloud
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="h-3 w-10 shrink-0 rounded-full bg-[rgb(2_4_10/0.6)] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.15)]" aria-hidden />
+            Darker shading: dark enough for aurora
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="grid w-10 shrink-0 place-items-center" aria-hidden>
+              <span className="map-pin clear" style={{ position: 'relative' }}>
+                <span className="map-pin-dot" />
+              </span>
+            </span>
+            Glowing pin: spot that is clear and dark at the slider time
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="flex w-10 shrink-0 justify-center gap-1" aria-hidden>
+              {['#4ade80', '#facc15', '#a78bfa', '#fb7185'].map((c) => (
+                <span key={c} className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
+              ))}
+            </span>
+            Roads: clear · slippery · windy · closed
+          </li>
+        </ul>
+        <div className="flex items-center gap-2 pb-6 pt-4 text-[12px] text-ink-3">
+          <CamIcon size={14} strokeWidth={1.5} aria-hidden /> Tap a camera pin to open it (zoom in to see them). Map © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors.
         </div>
       </Sheet>
 

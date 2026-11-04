@@ -6,14 +6,42 @@ import { useSettings } from './store';
  *  - crashes: message + trimmed stack + app version + browser family
  * Both are OFF by default and controlled in Settings → Privacy.
  */
-const VERSION = '1.1.0';
+import { APP_VERSION } from './update';
+
+const VERSION = APP_VERSION;
 const API = import.meta.env.VITE_API_BASE ?? '';
 let queue: string[] = [];
 
 export function track(event: string) {
   if (!useSettings.getState().analytics) return;
+  drainDeferred();
   queue.push(event);
   if (queue.length >= 20) flush();
+}
+
+/**
+ * Onboarding happens before anyone can opt in, so its funnel events (where people drop
+ * off) wait on this device — at most 20 names, no IDs — and are only sent if analytics is
+ * switched on later. Otherwise they never leave the phone.
+ */
+const DEFERRED = 'nl-deferred-events';
+export function trackDeferred(event: string) {
+  if (useSettings.getState().analytics) return track(event);
+  try {
+    const list = JSON.parse(localStorage.getItem(DEFERRED) ?? '[]') as string[];
+    localStorage.setItem(DEFERRED, JSON.stringify([...list, event].slice(-20)));
+  } catch {
+    /* private mode */
+  }
+}
+function drainDeferred() {
+  try {
+    const list = JSON.parse(localStorage.getItem(DEFERRED) ?? '[]') as string[];
+    if (list.length) queue.push(...list);
+    localStorage.removeItem(DEFERRED);
+  } catch {
+    /* ignore */
+  }
 }
 
 function flush() {

@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, LocateFixed, Sparkles } from 'lucide-react';
+import { Bell, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { spring } from '../design/tokens';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useT } from '../lib/i18n';
 import { enablePush, pushSupport } from '../lib/push';
 import { useSettings } from '../lib/store';
+import { trackDeferred } from '../lib/telemetry';
 import { Press } from './Button';
 import { Glass } from './Glass';
 
@@ -15,16 +16,17 @@ export function Onboarding({ step, setStep, onDone }: { step: number; setStep: (
   const { locate, status } = useGeolocation();
   const set = useSettings((s) => s.set);
   const [msg, setMsg] = useState('');
+  // Two cards (was three): the welcome card asks for location straight away.
   const cards = [
-    { icon: Sparkles, title: t('onb.1.title'), body: t('onb.1.body'), cta: t('onb.next'), act: () => setStep(1) },
     {
-      icon: LocateFixed,
-      title: t('onb.2.title'),
-      body: t('onb.2.body'),
+      icon: Sparkles,
+      title: t('onb.1.title'),
+      body: `${t('onb.1.body')} ${t('onb.2.body')}`,
       cta: status === 'locating' ? t('loc.finding') : t('loc.use'),
       act: () => {
+        trackDeferred('onb.location');
         locate();
-        setTimeout(() => setStep(2), 600);
+        setTimeout(() => setStep(1), 600);
       },
     },
     {
@@ -33,6 +35,7 @@ export function Onboarding({ step, setStep, onDone }: { step: number; setStep: (
       body: pushSupport() === 'needs-install' ? t('onb.3.ios') : t('onb.3.body'),
       cta: t('onb.3.cta'),
       act: async () => {
+        trackDeferred('onb.alerts');
         try {
           if (pushSupport() === 'ok') await enablePush();
         } catch (e) {
@@ -43,6 +46,7 @@ export function Onboarding({ step, setStep, onDone }: { step: number; setStep: (
     },
   ];
   const finish = () => {
+    trackDeferred('onb.done');
     set('onboarded', true);
     onDone();
   };
@@ -61,12 +65,12 @@ export function Onboarding({ step, setStep, onDone }: { step: number; setStep: (
               {c.cta}
             </Press>
             <div className="mt-4 flex items-center justify-between">
-              <div className="flex gap-1.5" aria-label={`Step ${step + 1} of 3`}>
-                {[0, 1, 2].map((i) => (
+              <div className="flex gap-1.5" aria-label={`Step ${step + 1} of ${cards.length}`}>
+                {cards.map((_, i) => (
                   <motion.span key={i} className="h-1.5 rounded-full bg-ink" animate={{ width: i === step ? 22 : 6, opacity: i === step ? 0.9 : 0.3 }} transition={spring} />
                 ))}
               </div>
-              <button onClick={step < 2 ? () => setStep(step + 1) : finish} className="min-h-[44px] px-2 text-[14px] text-ink-2">
+              <button onClick={() => (trackDeferred(`onb.skip${step + 1}`), step < cards.length - 1 ? setStep(step + 1) : finish())} className="min-h-[44px] px-2 text-[14px] text-ink-2">
                 {t('onb.skip')}
               </button>
             </div>

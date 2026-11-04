@@ -31,7 +31,7 @@ export function ScoreRing({ score, size = 264, night = false, celebrate = 0 }: {
       return;
     }
     progress.set(target);
-    const a = animate(count, target, { duration: 1.4, ease: [0.16, 1, 0.3, 1] });
+    const a = animate(count, target, { duration: 0.9, ease: [0.16, 1, 0.3, 1] });
     return () => a.stop();
   }, [score, target, reduced, progress, count]);
 
@@ -45,7 +45,7 @@ export function ScoreRing({ score, size = 264, night = false, celebrate = 0 }: {
       style={{ width: size, height: size }}
       initial={celebrate && !reduced ? { scale: 1 } : false}
       animate={celebrate && !reduced ? { scale: [1, 1.07, 0.98, 1] } : undefined}
-      transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
       {/* "Go now" celebration: a shimmer sweeps once around the ring */}
       {celebrate > 0 && !reduced && (
