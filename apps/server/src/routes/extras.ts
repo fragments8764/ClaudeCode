@@ -156,6 +156,7 @@ export type SendPush = (sub: PushSub, payload: { title: string; body: string; ur
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface Ctx {
+  configIssues?: { key: string; level: 'error' | 'warn'; problem: string; fix: string }[];
   fetcher: Fetcher;
   now: () => Date;
   config: ConfigLoader;
@@ -931,7 +932,7 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     };
   }
   app.get('/api/admin/validation', (c) => (authed(c) ? c.json({ data: validationReport() }) : c.json({ error: 'not found' }, 404)));
-  app.get('/admin', (c) => (authed(c) ? c.html(renderAdmin(validationReport(), { notes: betaNotes.get().slice().reverse(), token: ctx.adminToken ?? '' })) : c.text('Not found', 404)));
+  app.get('/admin', (c) => (authed(c) ? c.html(renderAdmin(validationReport(), { notes: betaNotes.get().slice().reverse(), token: ctx.adminToken ?? '' }, ctx.configIssues ?? [])) : c.text('Not found', 404)));
 
   // ───────── Web push ─────────
   app.get('/api/push/key', (c) => (ctx.vapid ? c.json({ data: { publicKey: ctx.vapid.publicKey } }) : c.json({ error: 'push not configured' }, 503)));

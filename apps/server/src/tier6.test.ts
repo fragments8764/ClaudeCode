@@ -131,3 +131,12 @@ describe('beta feedback', () => {
     expect((await a.request('/api/admin/beta-feedback')).status).toBe(404);
   });
 });
+
+describe('health exposes settings problems by name only', () => {
+  it('never leaks values', async () => {
+    const a = createApp({ fetcher: new Fetcher(SOURCES, { fetch: (async () => new Response('{}')) as never, retries: 0, sleep: async () => {} }), inlineConfig: { spots: [], cameras: [] }, configIssues: [{ key: 'ADMIN_TOKEN', level: 'warn', problem: 'secret-ish detail', fix: 'x' }] } as never);
+    const h = await (await a.request('/api/health')).json();
+    expect(h.config).toEqual({ ok: true, issues: [{ key: 'ADMIN_TOKEN', level: 'warn' }] });
+    expect(JSON.stringify(h)).not.toMatch(/secret-ish/);
+  });
+});

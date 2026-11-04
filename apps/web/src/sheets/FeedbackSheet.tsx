@@ -55,6 +55,14 @@ export function pendingFeedback(now = new Date()): { night: string; rec: NightRe
   return rec && !rec.answered && rec.peak >= 10 ? { night, rec } : null;
 }
 
+/** One tap from the Tonight card (beta): records the answer, queued if offline. */
+export async function answerNight(night: string, saw: boolean, fallback: { lat: number; lon: number }, brightness?: number) {
+  const rec = readNights()[night];
+  const at = rec ?? fallback;
+  markAnswered(night);
+  await postOrQueue('/api/outcomes', { night, lat: at.lat, lon: at.lon, saw, brightness, predicted: rec?.peak }).catch(() => {});
+}
+
 export function FeedbackSheet({ night, open, onClose }: { night: string | null; open: boolean; onClose: () => void }) {
   const location = useSettings((s) => s.location);
   const [state, setState] = useState<'ask' | 'done'>('ask');

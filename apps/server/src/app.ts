@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { ConfigIssue } from './lib/configCheck';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import {
@@ -124,9 +125,11 @@ export interface AppOptions {
   sendPush?: SendPush;
   /** enables /admin and /api/admin/* when set */
   adminToken?: string | null;
+  /** production settings problems found at startup (see lib/configCheck) */
+  configIssues?: ConfigIssue[];
 }
 
-export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), configDir = null, inlineConfig, dataDir = null, vapid = null, sendPush, adminToken = null }: AppOptions) {
+export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), configDir = null, inlineConfig, dataDir = null, vapid = null, sendPush, adminToken = null, configIssues = [] }: AppOptions) {
   const app = new Hono();
   const started = now();
   const config = new ConfigLoader(configDir, inlineConfig);
@@ -257,7 +260,9 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
       return { ...h, provider: s.provider ?? s.name, attribution: s.attribution, homepage: s.homepage, ttlSeconds: s.ttlMs / 1000, expectedRefreshSec: s.ttlMs / 1000, ageSec, state };
     });
     const degraded = sources.some((s) => s.state === 'down' || s.state === 'stale');
-    return c.json({ status: degraded ? 'degraded' : 'ok', startedAt: started.toISOString(), now: t.toISOString(), cacheEntries: fetcher.cache.size, sources });
+    // settings problems by key name only — never values
+    const config = { ok: !configIssues.some((i) => i.level === 'error'), issues: configIssues.map((i) => ({ key: i.key, level: i.level })) };
+    return c.json({ status: degraded ? 'degraded' : 'ok', startedAt: started.toISOString(), now: t.toISOString(), cacheEntries: fetcher.cache.size, sources, config });
   });
 
   app.get('/api/score-weights', (c) => c.json({ data: config.weights() }));
@@ -339,7 +344,7 @@ export function createApp({ fetcher, corsOrigin = '*', now = () => new Date(), c
     };
   }
 
-  const services = registerExtras(app, { fetcher, now, config, dataDir, vapid, sendPush, spaceWeather, clouds, aurora, scoreAt, parseLatLon, meta, adminToken });
+  const services = registerExtras(app, { fetcher, now, config, dataDir, vapid, sendPush, spaceWeather, clouds, aurora, scoreAt, parseLatLon, meta, adminToken, configIssues });
   logScore = services.logScore;
 
   app.notFound((c) => (c.req.path.startsWith('/api/') ? c.json({ error: 'not found' }, 404) : c.text('Not found', 404)));

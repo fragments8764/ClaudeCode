@@ -1,0 +1,34 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec). New → Blueprint → pick this repo.
+# Secrets marked `sync: false` are asked for in the dashboard; they are never stored in git.
+services:
+  - type: web
+    name: nordurljos
+    runtime: node
+    plan: starter            # a persistent disk needs a paid instance
+    region: frankfurt        # closest Render region to Iceland
+    branch: claude/nordurljós-aurora-app-nyo3bw
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: nordurljos-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /data
+      - key: ADMIN_TOKEN
+        generateValue: true  # Render makes a long random value; copy it from the dashboard
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: OPEN_METEO_API_KEY
+        sync: false

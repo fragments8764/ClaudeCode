@@ -9,6 +9,9 @@ import { useSettings, type Language } from './store';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  'feedback.yes': 'Yes',
+  'feedback.no': 'No',
+  'feedback.thanks': 'Thanks! That helps tune the score.',
   'verdict.bright': 'Too bright for aurora',
   'dark.returns': 'Dark skies return around {d}',
   'tools.g.plan': 'Plan tonight',
@@ -116,6 +119,9 @@ const en: Dict = {
 };
 
 const is: Dict = {
+  'feedback.yes': 'Já',
+  'feedback.no': 'Nei',
+  'feedback.thanks': 'Takk! Þetta hjálpar okkur að bæta spána.',
   'verdict.bright': 'Of bjart fyrir norðurljós',
   'dark.returns': 'Dimmir aftur um {d}',
   'tools.g.plan': 'Skipuleggðu kvöldið',
@@ -222,6 +228,9 @@ const is: Dict = {
 };
 
 const de: Dict = {
+  'feedback.yes': 'Ja',
+  'feedback.no': 'Nein',
+  'feedback.thanks': 'Danke! Das hilft, die Vorhersage zu verbessern.',
   'verdict.bright': 'Zu hell für Polarlichter',
   'dark.returns': 'Dunkle Nächte ab etwa {d}',
   'tools.g.plan': 'Heute planen',
@@ -328,6 +337,9 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+  'feedback.yes': 'Oui',
+  'feedback.no': 'Non',
+  'feedback.thanks': 'Merci ! Cela aide à affiner le score.',
   'verdict.bright': 'Trop clair pour les aurores',
   'dark.returns': 'Retour des nuits noires vers le {d}',
   'tools.g.plan': 'Préparer la nuit',
@@ -434,6 +446,9 @@ const fr: Dict = {
 };
 
 const zh: Dict = {
+  'feedback.yes': '看到了',
+  'feedback.no': '没有',
+  'feedback.thanks': '谢谢！这能帮助改进评分。',
   'verdict.bright': '太亮，看不到极光',
   'dark.returns': '约 {d} 起恢复夜空',
   'tools.g.plan': '规划今晚',
@@ -540,6 +555,9 @@ const zh: Dict = {
 };
 
 const ja: Dict = {
+  'feedback.yes': '見えた',
+  'feedback.no': '見えなかった',
+  'feedback.thanks': 'ありがとう！スコアの改善に役立ちます。',
   'verdict.bright': '明るすぎてオーロラは見えません',
   'dark.returns': '{d}ごろに暗い夜が戻ります',
   'tools.g.plan': '今夜の計画',

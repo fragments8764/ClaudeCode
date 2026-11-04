@@ -13,7 +13,7 @@ import { useT } from '../lib/i18n';
 import { chime } from '../lib/sound';
 import { useSettings } from '../lib/store';
 import { useSafetySummary } from '../sheets/SafetySheet';
-import { pendingFeedback } from '../sheets/FeedbackSheet';
+import { answerNight, pendingFeedback } from '../sheets/FeedbackSheet';
 import { ageText, staleSources } from '../lib/staleness';
 import { useActivePlan } from '../sheets/PlanSheet';
 import { contextualTip, dismissTip } from '../lib/tips';
@@ -80,6 +80,8 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
   const stale = DEMO ? [] : staleSources(metas, c.now);
   const oldest = metas.map((m) => m.fetchedAt).filter((x): x is string => !!x).sort()[0];
   const feedback = pendingFeedback(c.now);
+  const [answered, setAnswered] = useState(false);
+  const [thanks, setThanks] = useState(false);
   const plan = useActivePlan();
   const { gaps } = useCloudGaps(c.now);
   const localCloudy = (DEMO?.cloud ?? cd?.effective ?? 0) > 40;
@@ -138,10 +140,38 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
           </motion.button>
         )}
 
-        {feedback && (
-          <motion.button variants={item} onClick={() => onFeedback(feedback.night)} className="glass pill mx-auto mt-3 flex min-h-[44px] items-center gap-2 px-4 text-[13px]">
-            <MessageCircleQuestion size={15} strokeWidth={1.75} aria-hidden /> {t('feedback.card')} <span className="text-[rgb(var(--aurora-rgb))]">{t('feedback.cta')}</span>
-          </motion.button>
+        {feedback && !answered && (
+          // Beta: answer in one tap right here (details are optional, in the sheet)
+          <motion.div variants={item} className="glass mx-auto mt-3 flex w-full max-w-sm items-center gap-2 py-1.5 pl-4 pr-1.5" style={{ borderRadius: 'var(--r-pill)' }} role="group" aria-label={t('feedback.card')}>
+            <button onClick={() => onFeedback(feedback.night)} className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 text-left text-[13px]">
+              <MessageCircleQuestion size={15} strokeWidth={1.75} className="shrink-0" aria-hidden /> {t('feedback.card')}
+            </button>
+            {(
+              [
+                [true, t('feedback.yes')],
+                [false, t('feedback.no')],
+              ] as const
+            ).map(([saw, label]) => (
+              <button
+                key={label}
+                onClick={() => {
+                  haptic('success');
+                  setAnswered(true);
+                  setThanks(true);
+                  setTimeout(() => setThanks(false), 3000);
+                  void answerNight(feedback.night, saw, location, saw ? 3 : undefined);
+                }}
+                className={`h-11 min-w-[56px] shrink-0 rounded-full px-3 text-[14px] font-medium ${saw ? 'bg-[rgb(var(--aurora-rgb))] text-[color:var(--c-on-accent)]' : 'bg-[rgb(255_255_255/0.1)]'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+        {thanks && (
+          <p className="on-sky mx-auto mt-3 text-[13px] text-ink-2" role="status">
+            {t('feedback.thanks')}
+          </p>
         )}
 
         {/* Hero */}

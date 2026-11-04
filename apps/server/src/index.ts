@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { banner, checkConfig } from './lib/configCheck';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -13,11 +14,13 @@ const CONTACT = process.env.CONTACT_EMAIL ?? '';
 const here = (p: string) => new URL(p, import.meta.url).pathname;
 const CONFIG_DIR = resolve(process.env.CONFIG_DIR ?? here('../../../config'));
 const DATA_DIR = resolve(process.env.DATA_DIR ?? here('../../../data'));
+// Production settings check: loud banner now, also on /admin and (key names only) /api/health
+const configIssues = checkConfig(process.env, { dataDir: DATA_DIR, dataDirDefaulted: !process.env.DATA_DIR });
+console[configIssues.some((i) => i.level === 'error') ? 'error' : 'log'](banner(configIssues));
 
 // MET Norway's ToS requires an identifying User-Agent; a contact address is optional here.
 // NB: MET Norway rejects placeholder addresses (e.g. @example.com) with HTTP 403 — use a real one or none.
 const userAgent = `nordurljos/1.0 (+https://github.com/fragments8764/ClaudeCode${CONTACT ? `; ${CONTACT}` : ''})`;
-if (!CONTACT) console.warn('[nordurljos] CONTACT_EMAIL not set — consider setting a real contact address for MET Norway (their ToS).');
 
 /** VAPID keys: env vars win; otherwise generate once and persist in DATA_DIR. */
 function loadVapid() {
@@ -52,8 +55,7 @@ const sendPush: SendPush = async (sub, payload) => {
 };
 
 const fetcher = new Fetcher(SOURCES, { userAgent });
-const app = createApp({ fetcher, corsOrigin: process.env.CORS_ORIGIN ?? '*', configDir: CONFIG_DIR, dataDir: DATA_DIR, vapid, sendPush, adminToken: process.env.ADMIN_TOKEN || null });
-if (!process.env.ADMIN_TOKEN) console.log('[nordurljos] ADMIN_TOKEN not set: /admin validation dashboard disabled.');
+const app = createApp({ fetcher, corsOrigin: process.env.CORS_ORIGIN ?? '*', configDir: CONFIG_DIR, dataDir: DATA_DIR, vapid, sendPush, adminToken: process.env.ADMIN_TOKEN || null, configIssues });
 
 // In production, serve the built PWA from the same origin (single deploy).
 const webDist = resolve(process.env.WEB_DIST ?? here('../../web/dist'));

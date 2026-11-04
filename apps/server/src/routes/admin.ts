@@ -2,7 +2,7 @@
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function renderAdmin(r: any, beta: { notes: any[]; token: string } = { notes: [], token: '' }): string {
+export function renderAdmin(r: any, beta: { notes: any[]; token: string } = { notes: [], token: '' }, issues: { key: string; level: string; problem: string; fix: string }[] = []): string {
   const cal = r.calibration;
   const bt = r.backtest as any;
   const bar = (v: number | null) => (v == null ? '—' : `<span class="bar" style="width:${Math.round(v * 100)}%"></span> ${Math.round(v * 100)}%`);
@@ -16,6 +16,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 6px;text-align:left;
 .bar{display:inline-block;height:8px;border-radius:4px;background:#2dd4bf;vertical-align:middle;max-width:160px}.muted{color:#a6adbb}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .big{font-size:32px;font-weight:300}code{background:rgb(255 255 255/.08);padding:2px 6px;border-radius:6px}
 </style></head><body>
+${issues.length ? `<div class="card" style="border:1px solid ${issues.some((x) => x.level === 'error') ? '#fb7185' : '#facc15'}"><h2 style="margin-top:0">Production settings</h2><ul>${issues.map((x) => `<li><b>${esc(x.level.toUpperCase())} ${esc(x.key)}</b>: ${esc(x.problem)}<br><span class="muted">→ ${esc(x.fix)}</span></li>`).join('')}</ul></div>` : '<p class="muted">Production settings: all good ✓</p>'}
 <h1>Score validation</h1><div class="muted">Generated ${esc(r.generatedAt)} · weights version <code>${esc(r.weights.version)}</code></div>
 <h2>Overview</h2><div class="grid">
 <div class="card"><div class="muted">Scores logged</div><div class="big">${esc(r.scoreLog.entries)}</div><div class="muted">since ${esc(r.scoreLog.since ?? '—')}</div></div>

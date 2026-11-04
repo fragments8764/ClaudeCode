@@ -126,3 +126,23 @@ describe('field performance monitor', () => {
     expect(drainPer10Min([{ at: t0, level: 0.8, charging: false }])).toBeNull();
   });
 });
+
+describe('one-tap "Did you see it?" (beta)', () => {
+  it('an answer is sent once and the question goes away', async () => {
+    const store = new Map<string, string>();
+    const g = globalThis as unknown as Record<string, unknown>;
+    g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
+    const sent: unknown[] = [];
+    g.fetch = async (_u: string, init: { body: string }) => (sent.push(JSON.parse(init.body)), new Response('{}'));
+    Object.defineProperty(globalThis, 'navigator', { value: { onLine: true }, configurable: true });
+    const { recordNight, pendingFeedback, answerNight } = await import('../sheets/FeedbackSheet');
+    const evening = new Date('2026-11-04T22:00:00Z');
+    recordNight(48, { lat: 64.15, lon: -21.94, label: 'Reykjavík' }, evening);
+    const morning = new Date(2026, 10, 5, 10, 0); // local 10:00 next day
+    const p = pendingFeedback(morning)!;
+    expect(p.rec.peak).toBe(48);
+    await answerNight(p.night, true, { lat: 0, lon: 0 }, 3);
+    expect(sent[0]).toMatchObject({ saw: true, predicted: 48, night: p.night });
+    expect(pendingFeedback(morning)).toBeNull();
+  });
+});
