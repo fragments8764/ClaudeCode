@@ -156,7 +156,7 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
             <ScoreRing score={s?.score ?? null} size={ringSize} night={night} celebrate={celebrate} />
           </motion.button>
           <motion.h1 variants={item} className={`on-sky text-center font-display font-light leading-tight ${short ? 'mt-4 text-[27px]' : 'mt-6 text-[30px]'}`} aria-live="polite">
-            {s ? t(`verdict.${s.verdict}`) : ' '}
+            {verdictText}
           </motion.h1>
           <motion.p variants={item} className="on-sky mt-1 text-center text-[15px] text-ink-2">
             {sub}
