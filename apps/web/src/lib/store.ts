@@ -71,6 +71,8 @@ export interface Prefs {
   crashReports: boolean;
   /** show the Aurora Score as a badge on the home-screen icon */
   iconBadge: boolean;
+  /** Low power was switched on automatically because the frame rate dropped below 40 fps */
+  autoLowPower: boolean;
   /** one-tap battery saver: red-only, dimmed, static sky, slower refresh, paused camera feeds */
   batterySaver: boolean;
   /** spoken alerts while the app is open */
@@ -116,6 +118,7 @@ export const DEFAULT_PREFS: Prefs = {
   analytics: false,
   crashReports: false,
   iconBadge: false,
+  autoLowPower: false,
   batterySaver: false,
   spokenAlerts: false,
   autoDriving: true,

@@ -19,6 +19,9 @@ uniform vec3 u_colA;
 uniform vec3 u_colB;
 uniform vec3 u_colC;
 uniform vec2 u_tilt;
+// Per-column lookup (computed on the CPU each frame, see skyLut.ts): row i = band i,
+// R/G = curtain wave (16-bit), B = ray brightness. Everything costly depends only on x.
+uniform sampler2D u_lut;
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -57,11 +60,12 @@ void main() {
   for (int i = 0; i < 3; i++) {
     float fi = float(i);
     float base = 0.5 + 0.11 * fi + 0.06 * sin(ap.x * 1.2 + t * 0.12 + fi * 2.1);
-    float wave = fbm(vec2(ap.x * 1.4 + fi * 3.7, t * 0.07 + fi * 1.3));
+    vec4 lut = texture2D(u_lut, vec2(uv.x, (fi + 0.5) / 3.0));
+    float wave = (lut.r * 255.0 * 256.0 + lut.g * 255.0) / 65535.0;
     float y = base + (wave - 0.5) * 0.38;
     float d = uv.y - y;
     float curtain = smoothstep(-0.025, 0.0, d) * exp(-max(d, 0.0) * (5.5 - 2.0 * u_intensity));
-    float rays = 0.45 + 0.55 * fbm(vec2(ap.x * 16.0 + fi * 9.0, t * 0.5));
+    float rays = 0.45 + 0.55 * lut.b;
     vec3 c = mix(u_colA, u_colB, smoothstep(0.02, 0.22, d));
     c = mix(c, u_colC, smoothstep(0.16, 0.42, d));
     ac += c * curtain * rays * (0.75 - 0.18 * fi);

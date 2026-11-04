@@ -3,9 +3,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { startAutoUpdate } from './lib/update';
+import { startPerfMonitor } from './lib/perf';
 import './styles.css';
 
 void startAutoUpdate();
+startPerfMonitor();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { networkMode: 'offlineFirst' } },

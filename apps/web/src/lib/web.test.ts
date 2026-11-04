@@ -103,3 +103,26 @@ describe('place names beyond Iceland (regression: Tromsø showed as raw coordina
     expect(labelFor(64.1466, -21.9426)).toBe('Reykjavík');
   });
 });
+
+import { drainPer10Min, fpsByScreen, shouldAutoLowPower } from './perf';
+describe('field performance monitor', () => {
+  const w = (fps: number, screen = 'tonight') => ({ at: 0, fps, screen });
+  it('auto Low power needs two slow windows in a row (one hiccup is fine)', () => {
+    expect(shouldAutoLowPower([w(58), w(31)])).toBe(false);
+    expect(shouldAutoLowPower([w(31), w(58)])).toBe(false);
+    expect(shouldAutoLowPower([w(58), w(35), w(38)])).toBe(true);
+    expect(shouldAutoLowPower([w(39.9)])).toBe(false);
+  });
+  it('summarises fps per screen', () => {
+    expect(fpsByScreen([w(60), w(50), w(30, 'map')])).toEqual([
+      { screen: 'tonight', avg: 55, worst: 50, windows: 2 },
+      { screen: 'map', avg: 30, worst: 30, windows: 1 },
+    ]);
+  });
+  it('battery drain per 10 min ignores charging samples', () => {
+    const t0 = 1_000_000;
+    expect(drainPer10Min([{ at: t0, level: 0.8, charging: false }, { at: t0 + 20 * 60_000, level: 0.76, charging: false }])).toBe(2);
+    expect(drainPer10Min([{ at: t0, level: 0.8, charging: true }, { at: t0 + 20 * 60_000, level: 0.9, charging: true }])).toBeNull();
+    expect(drainPer10Min([{ at: t0, level: 0.8, charging: false }])).toBeNull();
+  });
+});

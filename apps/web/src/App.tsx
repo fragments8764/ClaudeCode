@@ -63,8 +63,10 @@ const loaders = {
   feedback: () => import('./sheets/FeedbackSheet'),
   detail: () => import('./sheets/DetailSheets'),
   beta: () => import('./sheets/BetaFeedbackSheet'),
+  fieldtest: () => import('./sheets/FieldTestSheet'),
   metric: () => import('./sheets/MetricSheets'),
 };
+const FieldTestSheet = lazy(() => loaders.fieldtest().then((m) => ({ default: m.FieldTestSheet })));
 const BetaFeedbackSheet = lazy(() => loaders.beta().then((m) => ({ default: m.BetaFeedbackSheet })));
 const CloudSheet = lazy(() => loaders.detail().then((m) => ({ default: m.CloudSheet })));
 const ActivitySheet = lazy(() => loaders.detail().then((m) => ({ default: m.ActivitySheet })));
@@ -229,7 +231,7 @@ export default function App() {
   // Lazy sheets mount on first open and stay mounted so their exit animations still play.
   const [mounted, setMounted] = useState<Set<string>>(() => new Set());
   const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
-  const [extra, setExtra] = useState<'privacy' | 'sources' | 'beta' | null>(null);
+  const [extra, setExtra] = useState<'privacy' | 'sources' | 'beta' | 'fieldtest' | null>(null);
   const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
   const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
   useEffect(() => {
@@ -402,7 +404,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduceMotion === 'on' ? 'always' : reduceMotion === 'off' ? 'never' : 'user'} transition={reduced ? calm : spring}>
       <RefractionDefs />
-      <AuroraSky params={sky} night={nightVision} reducedMotion={reduced || batterySaver} lowPower={lowPower} />
+      {/* the map covers the whole screen: don't burn GPU on a sky nobody can see */}
+      <AuroraSky params={sky} night={nightVision} reducedMotion={reduced || batterySaver} lowPower={lowPower} paused={tab === 'map' && !showOnb} />
       {batterySaver && <div aria-hidden className="pointer-events-none fixed inset-0 bg-black/35" style={{ zIndex: 'var(--z-toast)' }} />}
 
       <AnimatePresence>
@@ -475,6 +478,7 @@ export default function App() {
       <Suspense fallback={null}>{hasMounted('privacy') && <PrivacySheet open={extra === 'privacy'} onClose={() => setExtra(null)} />}</Suspense>
       <Suspense fallback={null}>{hasMounted('sources') && <SourcesSheet open={extra === 'sources'} onClose={() => setExtra(null)} />}</Suspense>
       <Suspense fallback={null}>{hasMounted('beta') && <BetaFeedbackSheet open={extra === 'beta'} onClose={() => setExtra(null)} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('fieldtest') && <FieldTestSheet open={extra === 'fieldtest'} onClose={() => setExtra(null)} />}</Suspense>
       <LocationSheet open={sheet === 'location'} onClose={close} />
       <ToolsSheet
         open={sheet === 'tools'}

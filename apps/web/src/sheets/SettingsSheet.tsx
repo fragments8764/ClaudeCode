@@ -9,6 +9,7 @@ import { Section, Segmented, Toggle } from '../ui/Controls';
 import { Sheet } from '../ui/Sheet';
 import { useT } from '../lib/i18n';
 import { badgeSupported } from '../lib/badge';
+import { suppressAutoLowPower } from '../lib/perf';
 import { APP_VERSION, BUILD_ID, checkForUpdate, getUpdateStatus, onUpdateStatus, type UpdateStatus } from '../lib/update';
 
 const TRI: { value: TriState; label: string }[] = [
@@ -53,7 +54,7 @@ function DataSources() {
   );
 }
 
-export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen?: (what: 'privacy' | 'sources' | 'health' | 'beta') => void }) {
+export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen?: (what: 'privacy' | 'sources' | 'health' | 'beta' | 'fieldtest') => void }) {
   const s = useSettings();
   return (
     <Sheet open={open} onClose={onClose} title="Settings" initial="full" detents={['half', 'full']}>
@@ -61,7 +62,18 @@ export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClos
         <Toggle label="Night Vision" hint="Dim red everything — keeps your eyes dark-adapted" checked={s.nightVision} onChange={(v) => s.set('nightVision', v)} />
         <Segmented label="Reduce motion" value={s.reduceMotion} options={TRI} onChange={(v) => s.set('reduceMotion', v)} />
         <Segmented label="Reduce transparency" value={s.reduceTransparency} options={TRI} onChange={(v) => s.set('reduceTransparency', v)} />
-        <Toggle label="Low power" hint="Calmer sky at 30 fps, lighter glass — saves battery in the cold" checked={s.lowPower} onChange={(v) => s.set('lowPower', v)} />
+        <Toggle
+          label="Low power"
+          hint={s.lowPower && s.autoLowPower ? 'Turned on for you: the animation was stuttering on this phone. Turn off to try full quality again.' : 'Calmer sky at 30 fps and lighter glass. Saves battery in the cold.'}
+          checked={s.lowPower}
+          onChange={(v) => {
+            s.set('lowPower', v);
+            if (!v && s.autoLowPower) {
+              s.set('autoLowPower', false);
+              suppressAutoLowPower();
+            }
+          }}
+        />
         <Toggle label="Battery saver" hint="One tap: red-only, dimmed, still sky, refresh 3× less often, camera feeds paused. Alerts still arrive." checked={s.batterySaver} onChange={(v) => s.set('batterySaver', v)} />
       </Section>
 
@@ -156,7 +168,7 @@ export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClos
       </Section>
 
       <Section title="App">
-        <AppVersion />
+        <AppVersion onSecret={() => onOpen?.('fieldtest')} />
         <IconBadgeToggle />
         <button onClick={() => onOpen?.('beta')} className="flex min-h-[56px] w-full items-center justify-between py-2 text-left">
           <span>
@@ -290,7 +302,17 @@ function OfflineMap() {
   );
 }
 
-function AppVersion() {
+function AppVersion({ onSecret }: { onSecret?: () => void }) {
+  // hidden Field test screen: tap the version 5 times within 3 s
+  const taps = useRef<number[]>([]);
+  const tapVersion = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 3000), now];
+    if (taps.current.length >= 5) {
+      taps.current = [];
+      onSecret?.();
+    }
+  };
   const t = useT();
   const [st, setSt] = useState<UpdateStatus>(getUpdateStatus);
   useEffect(() => onUpdateStatus(setSt), []);
@@ -300,7 +322,9 @@ function AppVersion() {
   return (
     <div className="flex min-h-[56px] items-center justify-between gap-3 py-2">
       <span>
-        <span className="block text-[15px] font-medium">{t('update.version', { v: APP_VERSION })}</span>
+        <span className="block text-[15px] font-medium" onClick={tapVersion}>
+          {t('update.version', { v: APP_VERSION })}
+        </span>
         <span className="block text-[13px] text-ink-3">
           {built} · {t('update.auto')}
         </span>
