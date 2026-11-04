@@ -26,46 +26,7 @@ export async function renderTonightCard(o: {
   const col: RGB = o.night ? [200, 40, 40] : scoreColor(o.score);
   const css = (c: RGB, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-  // sky
-  const sky = x.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, o.night ? '#000' : '#02040a');
-  sky.addColorStop(1, o.night ? '#0a0101' : '#0b1226');
-  x.fillStyle = sky;
-  x.fillRect(0, 0, W, H);
-  // stars
-  for (let i = 0; i < 220; i++) {
-    const r = Math.random();
-    x.fillStyle = `rgba(255,255,255,${0.2 + r * 0.6})`;
-    x.beginPath();
-    x.arc(Math.random() * W, Math.random() * H * 0.7, r * 1.6, 0, Math.PI * 2);
-    x.fill();
-  }
-  // aurora curtains
-  x.globalCompositeOperation = 'lighter';
-  const bands: [RGB, number, number][] = o.night
-    ? [[[160, 20, 20], 520, 0.55]]
-    : [
-        [[74, 222, 128], 560, 0.55],
-        [[45, 212, 191], 470, 0.35],
-        [[167, 139, 250], 380, 0.25],
-      ];
-  for (const [c2, y0, a] of bands) {
-    x.beginPath();
-    x.moveTo(0, y0);
-    for (let px = 0; px <= W; px += 20) x.lineTo(px, y0 + Math.sin(px / 140 + y0) * 60 + Math.sin(px / 47) * 14);
-    x.lineTo(W, 0);
-    x.lineTo(0, 0);
-    x.closePath();
-    const g = x.createLinearGradient(0, y0 - 380, 0, y0 + 60);
-    g.addColorStop(0, css(c2, 0));
-    g.addColorStop(0.8, css(c2, a * 0.6));
-    g.addColorStop(1, css(c2, a));
-    x.fillStyle = g;
-    x.filter = 'blur(18px)';
-    x.fill();
-  }
-  x.filter = 'none';
-  x.globalCompositeOperation = 'source-over';
+  drawBackdrop(x, W, H, o.night, css);
 
   // glass panel
   const px = 80;
@@ -134,4 +95,140 @@ export async function renderTonightCard(o: {
 
   const blob: Blob = await new Promise((res) => c.toBlob((b) => res(b!), 'image/png'));
   return new File([blob], `nordurljos-${new Date().toISOString().slice(0, 10)}.png`, { type: 'image/png' });
+}
+
+function drawBackdrop(x: CanvasRenderingContext2D, W: number, H: number, night: boolean, css: (c: RGB, a?: number) => string) {
+  const o = { night };
+  // sky
+  const sky = x.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, o.night ? '#000' : '#02040a');
+  sky.addColorStop(1, o.night ? '#0a0101' : '#0b1226');
+  x.fillStyle = sky;
+  x.fillRect(0, 0, W, H);
+  // stars
+  for (let i = 0; i < 220; i++) {
+    const r = Math.random();
+    x.fillStyle = `rgba(255,255,255,${0.2 + r * 0.6})`;
+    x.beginPath();
+    x.arc(Math.random() * W, Math.random() * H * 0.7, r * 1.6, 0, Math.PI * 2);
+    x.fill();
+  }
+  // aurora curtains
+  x.globalCompositeOperation = 'lighter';
+  const bands: [RGB, number, number][] = o.night
+    ? [[[160, 20, 20], 520, 0.55]]
+    : [
+        [[74, 222, 128], 560, 0.55],
+        [[45, 212, 191], 470, 0.35],
+        [[167, 139, 250], 380, 0.25],
+      ];
+  for (const [c2, y0, a] of bands) {
+    x.beginPath();
+    x.moveTo(0, y0);
+    for (let px = 0; px <= W; px += 20) x.lineTo(px, y0 + Math.sin(px / 140 + y0) * 60 + Math.sin(px / 47) * 14);
+    x.lineTo(W, 0);
+    x.lineTo(0, 0);
+    x.closePath();
+    const g = x.createLinearGradient(0, y0 - 380, 0, y0 + 60);
+    g.addColorStop(0, css(c2, 0));
+    g.addColorStop(0.8, css(c2, a * 0.6));
+    g.addColorStop(1, css(c2, a));
+    x.fillStyle = g;
+    x.filter = 'blur(18px)';
+    x.fill();
+  }
+  x.filter = 'none';
+  x.globalCompositeOperation = 'source-over';
+
+}
+
+/**
+ * 1080×1920 "5-night outlook" card: each night's best score as a glowing bar, the best
+ * night highlighted. Same look as the Tonight card; generated on the phone.
+ */
+export async function renderForecastCard(o: {
+  place: string;
+  night: boolean;
+  nights: { label: string; score: number; window: { start: string; end: string } | null; cloud: number | null; kp: number | null; best: boolean }[];
+}): Promise<File> {
+  const W = 1080;
+  const H = 1920;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const x = c.getContext('2d')!;
+  await document.fonts?.ready;
+  const font = (w: number, size: number) => `${w} ${size}px "Inter Variable", Inter, -apple-system, system-ui, sans-serif`;
+  const css = (c2: RGB, a = 1) => `rgba(${c2[0]},${c2[1]},${c2[2]},${a})`;
+  drawBackdrop(x, W, H, o.night, css);
+  const ink = o.night ? '#e85050' : '#eef3fb';
+  const ink2 = o.night ? 'rgba(232,80,80,0.8)' : 'rgba(238,243,251,0.7)';
+
+  const px = 80;
+  const py = 560;
+  const pw = W - 160;
+  const ph = 1140;
+  x.beginPath();
+  x.roundRect(px, py, pw, ph, 64);
+  x.fillStyle = 'rgba(255,255,255,0.07)';
+  x.fill();
+  x.strokeStyle = 'rgba(255,255,255,0.18)';
+  x.lineWidth = 2;
+  x.stroke();
+
+  x.textAlign = 'left';
+  x.fillStyle = ink2;
+  x.font = font(500, 30);
+  x.fillText('A U R O R A   O U T L O O K', px + 64, py + 100);
+  x.fillStyle = ink;
+  x.font = font(300, 64);
+  x.fillText(o.place, px + 64, py + 180);
+
+  const rowH = 168;
+  o.nights.slice(0, 5).forEach((n, i) => {
+    const y = py + 260 + i * rowH;
+    const col: RGB = o.night ? [200, 40, 40] : scoreColor(n.score);
+    if (n.best) {
+      x.beginPath();
+      x.roundRect(px + 32, y - 20, pw - 64, rowH - 16, 36);
+      x.fillStyle = css(col, 0.14);
+      x.fill();
+    }
+    x.textAlign = 'left';
+    x.fillStyle = ink;
+    x.font = font(n.best ? 600 : 400, 44);
+    x.fillText(n.label + (n.best ? '  ★' : ''), px + 64, y + 46);
+    x.fillStyle = ink2;
+    x.font = font(400, 30);
+    const sub = [n.window ? `Best ${hhmm(n.window.start)}–${hhmm(n.window.end)}` : 'No good window', n.cloud != null ? `${n.cloud}% cloud` : null, n.kp != null ? `Kp ${n.kp.toFixed(0)}` : null].filter(Boolean).join(' · ');
+    x.fillText(sub, px + 64, y + 96);
+    // bar
+    const bx = px + 64;
+    const bw = pw - 128 - 140;
+    x.fillStyle = 'rgba(255,255,255,0.08)';
+    x.beginPath();
+    x.roundRect(bx, y + 116, bw, 12, 6);
+    x.fill();
+    x.shadowColor = css(col, 0.8);
+    x.shadowBlur = 20;
+    x.fillStyle = css(col);
+    x.beginPath();
+    x.roundRect(bx, y + 116, Math.max(12, (bw * n.score) / 100), 12, 6);
+    x.fill();
+    x.shadowBlur = 0;
+    x.textAlign = 'right';
+    x.fillStyle = ink;
+    x.font = font(200, 84);
+    x.fillText(String(n.score), px + pw - 64, y + 104);
+  });
+
+  x.textAlign = 'center';
+  x.font = font(500, 34);
+  x.fillStyle = ink;
+  x.fillText('Norðurljós', W / 2, H - 120);
+  x.font = font(400, 24);
+  x.fillStyle = ink2;
+  x.fillText('Forecasts, not promises. Nights 4–5 are a rough guide.', W / 2, H - 76);
+  const blob: Blob = await new Promise((res) => c.toBlob((b) => res(b!), 'image/png'));
+  return new File([blob], `nordurljos-outlook-${new Date().toISOString().slice(0, 10)}.png`, { type: 'image/png' });
 }

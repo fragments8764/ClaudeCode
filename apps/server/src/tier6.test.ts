@@ -110,3 +110,24 @@ describe('live video cameras', () => {
     expect(r.data[0]).toMatchObject({ embed: 'video', status: 'live', video: { id: 'a0i1Kg6fROg' }, poster: '/api/cameras/v2/image' });
   });
 });
+
+describe('beta feedback', () => {
+  // smallest valid JPEG header + filler is enough for our checks
+  const jpeg = `data:image/jpeg;base64,${Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200)]).toString('base64')}`;
+  it('stores message, screen, version and device — and an optional screenshot', async () => {
+    const a = app();
+    const r = await post(a, '/api/beta-feedback', { message: 'Map froze while dragging', screen: '#/map', version: '1.3.0', device: 'iOS Safari app 390x844', screenshot: jpeg, lat: 64.1, ip: 'x' });
+    expect(r.status).toBe(200);
+    const list = (await (await a.request('/api/admin/beta-feedback?token=adm')).json()).data;
+    expect(list[0]).toMatchObject({ message: 'Map froze while dragging', screen: '#/map', version: '1.3.0', shot: true });
+    expect(JSON.stringify(list[0])).not.toMatch(/64\.1|7\.7\.7\.7/); // no location, no IP
+    const img = await a.request(`/api/admin/beta-feedback/${list[0].id}/screenshot?token=adm`);
+    expect(img.headers.get('content-type')).toBe('image/jpeg');
+  });
+  it('rejects empty messages and non-JPEG screenshots; admin-only reading', async () => {
+    const a = app();
+    expect((await post(a, '/api/beta-feedback', { message: ' ' })).status).toBe(400);
+    expect((await post(a, '/api/beta-feedback', { message: 'hello', screenshot: 'data:image/png;base64,AAAA' })).status).toBe(400);
+    expect((await a.request('/api/admin/beta-feedback')).status).toBe(404);
+  });
+});

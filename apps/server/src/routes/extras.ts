@@ -152,7 +152,7 @@ export interface Sighting {
   hidden?: boolean;
 }
 
-export type SendPush = (sub: PushSub, payload: { title: string; body: string; url: string; tag: string }) => Promise<{ gone: boolean }>;
+export type SendPush = (sub: PushSub, payload: { title: string; body: string; url: string; tag: string; score?: number }) => Promise<{ gone: boolean }>;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface Ctx {
@@ -540,6 +540,38 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     crashes.update((all) => [...all, { at: now().toISOString().slice(0, 13) + ':00Z', message: clean(b?.message, 300), stack: clean(b?.stack, 2000), version: clean(b?.version, 20), browser: clean(b?.browser, 20) }].slice(-500));
     return c.json({ data: { ok: true } });
   });
+  // ── Beta feedback (message + optional screenshot); readable only on /admin ──
+  type BetaNote = { id: string; at: string; message: string; screen: string; version: string; device: string; shot: boolean };
+  const betaNotes = new JsonStore<BetaNote[]>(ctx.dataDir, 'beta-feedback', []);
+  app.post('/api/beta-feedback', async (c) => {
+    if (!writeLimit.allow(`bf:${clientIp(c)}`)) return c.json({ error: 'slow down' }, 429);
+    let b: any;
+    try {
+      b = await readJson(c, 650_000);
+    } catch {
+      return c.json({ error: 'too large (screenshot max ~450 KB)' }, 413);
+    }
+    const message = typeof b?.message === 'string' ? b.message.trim().slice(0, 2000) : '';
+    if (message.length < 3) return c.json({ error: 'please write a few words' }, 400);
+    const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.replace(/[^\w .:/#()+-]/g, '').slice(0, n) : '');
+    let shot: Buffer | null = null;
+    if (typeof b?.screenshot === 'string') {
+      const m = b.screenshot.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
+      shot = m ? Buffer.from(m[1], 'base64') : null;
+      if (!shot || shot.length > 460_000 || shot[0] !== 0xff || shot[1] !== 0xd8) return c.json({ error: 'screenshot must be a JPEG under ~450 KB' }, 400);
+    }
+    const id = createHash('sha256').update(`${Date.now()}:${Math.random()}`).digest('hex').slice(0, 12);
+    if (shot) savePhoto(`bf${id}`.slice(0, 16), shot);
+    // no IP, no location, no account: the message, which screen, app version, browser family
+    betaNotes.update((all) => [...all, { id, at: now().toISOString(), message, screen: clip(b?.screen, 40), version: clip(b?.version, 40), device: clip(b?.device, 60), shot: !!shot }].slice(-500));
+    return c.json({ data: { ok: true, id } });
+  });
+  app.get('/api/admin/beta-feedback', (c) => (authed(c) ? c.json({ data: betaNotes.get().slice().reverse() }) : c.json({ error: 'not found' }, 404)));
+  app.get('/api/admin/beta-feedback/:id/screenshot', (c) => {
+    if (!authed(c)) return c.json({ error: 'not found' }, 404);
+    const buf = loadPhoto(`bf${c.req.param('id')}`.slice(0, 16));
+    return buf ? new Response(buf as unknown as BodyInit, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' } }) : c.json({ error: 'not found' }, 404);
+  });
   app.get('/api/admin/telemetry', (c) => (authed(c) ? c.json({ data: { events: telemetry.get(), crashes: crashes.get().slice(-50).reverse() } }) : c.json({ error: 'not found' }, 404)));
 
   // ───────── 5-night outlook ─────────
@@ -899,7 +931,7 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     };
   }
   app.get('/api/admin/validation', (c) => (authed(c) ? c.json({ data: validationReport() }) : c.json({ error: 'not found' }, 404)));
-  app.get('/admin', (c) => (authed(c) ? c.html(renderAdmin(validationReport())) : c.text('Not found', 404)));
+  app.get('/admin', (c) => (authed(c) ? c.html(renderAdmin(validationReport(), { notes: betaNotes.get().slice().reverse(), token: ctx.adminToken ?? '' })) : c.text('Not found', 404)));
 
   // ───────── Web push ─────────
   app.get('/api/push/key', (c) => (ctx.vapid ? c.json({ data: { publicKey: ctx.vapid.publicKey } }) : c.json({ error: 'push not configured' }, 503)));
@@ -1020,7 +1052,8 @@ export function registerExtras(app: Hono, ctx: Ctx) {
       for (const m of allowed) {
         try {
           const isFeedback = m.tag.startsWith('feedback-');
-          const r = await ctx.sendPush(sub, { title: m.title, body: m.body, url: isFeedback ? `/#/feedback?night=${m.tag.slice(9)}` : '/#/tonight', tag: m.tag });
+          // score rides along so the app icon badge can update even when the app is closed
+          const r = await ctx.sendPush(sub, { title: m.title, body: m.body, url: isFeedback ? `/#/feedback?night=${m.tag.slice(9)}` : '/#/tonight', tag: m.tag, ...(isFeedback ? {} : { score: s.data.score }) });
           if (r.gone) gone.add(sub.endpoint);
           if (!isFeedback) sub.lastSent[m.rule] = t.toISOString();
           sent++;
@@ -1037,7 +1070,7 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     captureFrames,
     runAlerts,
     logScore,
-    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush(), plans.flush(), telemetry.flush(), crashes.flush()),
+    flush: () => (subs.flush(), sightings.flush(), scoreLog.flush(), outcomes.flush(), plans.flush(), telemetry.flush(), crashes.flush(), betaNotes.flush()),
     checkPlans,
     stores: { subs, sightings, scoreLog, outcomes, plans, telemetry, crashes },
     frames,

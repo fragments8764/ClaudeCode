@@ -8,6 +8,7 @@ import { useSettings, type Language, type TriState, type Units } from '../lib/st
 import { Section, Segmented, Toggle } from '../ui/Controls';
 import { Sheet } from '../ui/Sheet';
 import { useT } from '../lib/i18n';
+import { badgeSupported } from '../lib/badge';
 import { APP_VERSION, BUILD_ID, checkForUpdate, getUpdateStatus, onUpdateStatus, type UpdateStatus } from '../lib/update';
 
 const TRI: { value: TriState; label: string }[] = [
@@ -52,7 +53,7 @@ function DataSources() {
   );
 }
 
-export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen?: (what: 'privacy' | 'sources' | 'health') => void }) {
+export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen?: (what: 'privacy' | 'sources' | 'health' | 'beta') => void }) {
   const s = useSettings();
   return (
     <Sheet open={open} onClose={onClose} title="Settings" initial="full" detents={['half', 'full']}>
@@ -156,6 +157,16 @@ export function SettingsSheet({ open, onClose, onOpen }: { open: boolean; onClos
 
       <Section title="App">
         <AppVersion />
+        <IconBadgeToggle />
+        <button onClick={() => onOpen?.('beta')} className="flex min-h-[56px] w-full items-center justify-between py-2 text-left">
+          <span>
+            <span className="block text-[15px] font-medium">Send beta feedback</span>
+            <span className="block text-[13px] text-ink-3">Report a bug or idea, with a screenshot</span>
+          </span>
+          <span className="text-ink-3" aria-hidden>
+            ›
+          </span>
+        </button>
       </Section>
 
       <Section title="Data sources">
@@ -301,4 +312,11 @@ function AppVersion() {
       )}
     </div>
   );
+}
+
+function IconBadgeToggle() {
+  const on = useSettings((s) => s.iconBadge);
+  const set = useSettings((s) => s.set);
+  if (!badgeSupported()) return null;
+  return <Toggle label="Score on the app icon" hint="Shows tonight's score as a badge on your Home Screen icon. On iPhone: add to Home Screen and allow notifications." checked={on} onChange={(v) => set('iconBadge', v)} />;
 }

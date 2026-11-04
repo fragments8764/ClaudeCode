@@ -99,6 +99,7 @@ export function PhotoSheet({ c, open, onClose }: { c: Conditions; open: boolean;
             </p>
           </>
         )}
+        {lens.phone && <PhoneGuide />}
       </Section>
 
       <ShotLog bright={bright} suggestion={s} c={c} />
@@ -235,5 +236,56 @@ function ShotLog({ bright, suggestion, c }: { bright: Brightness; suggestion: { 
       )}
       <p className="pb-2 pt-1 text-[12px] text-ink-3">Stored on this phone only. Photos are shrunk and stripped of location data before saving.</p>
     </Section>
+  );
+}
+
+/** Phone-specific steps: the night modes differ a lot between makers. */
+const PHONES = {
+  iphone: {
+    label: 'iPhone',
+    steps: [
+      'Put the phone on something steady (tripod, rock, car roof). Night mode then offers up to 30 s: tap the moon icon and drag the slider to Max.',
+      'Turn off Live Photo and flash. Use the 3 s timer so your tap does not shake it.',
+      'Tap a bright star or a distant light to focus, then hold to lock (AE/AF Lock).',
+      'Use the 1× main lens: it gathers far more light than 0.5× or zoom.',
+    ],
+  },
+  pixel: {
+    label: 'Pixel',
+    steps: [
+      'Open Night Sight. On a tripod it switches to Astrophotography (up to 4 min) by itself.',
+      'Set focus to "Far" in the settings. Turn off flash.',
+      'Keep still until the countdown ends: it stacks many short frames.',
+    ],
+  },
+  samsung: {
+    label: 'Samsung',
+    steps: [
+      'Use Pro (or Expert RAW): ISO 800–1600, shutter 10–30 s, manual focus to the mountain icon (infinity).',
+      'Turn off scene optimiser. Use the 2 s timer or a voice shutter command.',
+      'Shoot RAW if you can: you can lift the faint green later.',
+    ],
+  },
+  other: {
+    label: 'Other',
+    steps: [
+      'Look for Night, Pro or Manual mode. Aim for ISO 800–3200 and 5–20 s.',
+      'Prop the phone up, use a timer, switch off flash, focus far away.',
+    ],
+  },
+} as const;
+
+function PhoneGuide() {
+  const [k, setK] = useState<keyof typeof PHONES>(/iPhone/.test(navigator.userAgent) ? 'iphone' : /Pixel/.test(navigator.userAgent) ? 'pixel' : /SM-|Samsung/.test(navigator.userAgent) ? 'samsung' : 'other');
+  return (
+    <div className="pb-3">
+      <Segmented label="Your phone" value={k} options={(Object.keys(PHONES) as (keyof typeof PHONES)[]).map((v) => ({ value: v, label: PHONES[v].label }))} onChange={(v) => setK(v as keyof typeof PHONES)} />
+      <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-[14px] leading-relaxed text-ink-2">
+        {PHONES[k].steps.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ol>
+      <p className="mt-2 text-[12px] text-ink-3">Phones see more colour than your eyes: a grey glow can show up green on screen.</p>
+    </div>
   );
 }

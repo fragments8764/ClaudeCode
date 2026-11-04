@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { haversineKm, ICELAND_PLACES, snapCoord } from '@nordurljos/core';
+import { ARCTIC_PLACES, haversineKm, ICELAND_PLACES, snapCoord } from '@nordurljos/core';
+
+const KNOWN = [...ICELAND_PLACES, ...ARCTIC_PLACES];
 import { useSettings } from '../lib/store';
 
 export type GeoStatus = 'idle' | 'locating' | 'ok' | 'denied' | 'unavailable' | 'error';
 
 /** Friendly label for a coordinate: nearest known place if within 40 km. */
 export function labelFor(lat: number, lon: number): string {
-  let best = ICELAND_PLACES[0]!;
+  let best = KNOWN[0]!;
   let bestD = Infinity;
-  for (const p of ICELAND_PLACES) {
+  for (const p of KNOWN) {
     const d = haversineKm({ lat, lon }, p);
     if (d < bestD) {
       bestD = d;

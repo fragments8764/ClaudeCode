@@ -36,3 +36,14 @@ describe('geo', () => {
     expect(formatAge(null, now)).toBe('unknown');
   });
 });
+
+import { ARCTIC_PLACES, isIceland } from '../geo';
+describe('regions', () => {
+  it('every Iceland base is in Iceland, no Arctic base is', () => {
+    expect(ICELAND_PLACES.every((p) => isIceland(p.lat, p.lon))).toBe(true);
+    expect(ARCTIC_PLACES.some((p) => isIceland(p.lat, p.lon))).toBe(false);
+  });
+  it('covers Norway, Finland, Greenland, Canada and Alaska', () => {
+    expect(new Set(ARCTIC_PLACES.map((p) => p.region))).toEqual(new Set(['Norway', 'Sweden', 'Finland', 'Greenland', 'Canada', 'Alaska']));
+  });
+});

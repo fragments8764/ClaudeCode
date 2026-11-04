@@ -1,4 +1,4 @@
-import { ICELAND_PLACES } from '@nordurljos/core';
+import { ARCTIC_PLACES, ICELAND_PLACES, type Place } from '@nordurljos/core';
 import { LocateFixed } from 'lucide-react';
 import { useEffect } from 'react';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -10,6 +10,10 @@ export function LocationSheet({ open, onClose }: { open: boolean; onClose: () =>
   const { status, error, locate } = useGeolocation();
   const { location, setLocation } = useSettings();
 
+  const pick = (p: Place) => {
+    setLocation({ lat: p.lat, lon: p.lon, label: p.name, source: 'manual', at: new Date().toISOString() });
+    onClose();
+  };
   useEffect(() => {
     if (status === 'ok' && open) onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -26,34 +30,36 @@ export function LocationSheet({ open, onClose }: { open: boolean; onClose: () =>
           {error}
         </p>
       )}
-      <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Or pick a base</h3>
-      <ul className="grid grid-cols-2 gap-2">
-        {ICELAND_PLACES.map((p) => {
-          const active = location.source !== 'gps' && location.label === p.name;
-          return (
-            <li key={p.id}>
-              <Press
-                radius="lg"
-                hapticKind="select"
-                onClick={() => {
-                  setLocation({ lat: p.lat, lon: p.lon, label: p.name, source: 'manual', at: new Date().toISOString() });
-                  onClose();
-                }}
-                className={`h-16 w-full px-4 ${active ? 'shadow-[inset_0_0_0_1px_rgb(var(--aurora-rgb)/0.7)]' : ''}`}
-                aria-pressed={active}
-              >
-                <span className="flex w-full flex-col items-start">
-                  <span className="text-[15px] font-medium leading-tight">{p.name}</span>
-                  <span className="text-[12px] text-ink-3">{p.region}</span>
-                </span>
-              </Press>
-            </li>
-          );
-        })}
-      </ul>
+      <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Or pick a base in Iceland</h3>
+      <PlaceGrid places={ICELAND_PLACES} active={location} pick={pick} />
+      <h3 className="mb-2 mt-6 text-[11px] uppercase tracking-[0.22em] text-ink-3">Beyond Iceland</h3>
+      <PlaceGrid places={ARCTIC_PLACES} active={location} pick={pick} />
+      <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+        Outside Iceland you get the score, clouds, darkness, moon, aurora oval, space weather and alerts. Road conditions, Icelandic Met Office warnings, curated spots and the cloud map are Iceland-only for now.
+      </p>
       <p className="mt-5 pb-4 text-[12px] leading-relaxed text-ink-3">
         Your exact position stays on this phone. The server only sees it rounded to about 5 km, to look up the weather.
       </p>
     </Sheet>
+  );
+}
+
+function PlaceGrid({ places, active, pick }: { places: Place[]; active: { label: string; source: string }; pick: (p: Place) => void }) {
+  return (
+    <ul className="grid grid-cols-2 gap-2">
+      {places.map((p) => {
+        const on = active.source !== 'gps' && active.label === p.name;
+        return (
+          <li key={p.id}>
+            <Press radius="lg" hapticKind="select" onClick={() => pick(p)} className={`h-16 w-full px-4 ${on ? 'shadow-[inset_0_0_0_1px_rgb(var(--aurora-rgb)/0.7)]' : ''}`} aria-pressed={on}>
+              <span className="flex w-full flex-col items-start">
+                <span className="text-[15px] font-medium leading-tight">{p.name}</span>
+                <span className="text-[12px] text-ink-3">{p.region}</span>
+              </span>
+            </Press>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

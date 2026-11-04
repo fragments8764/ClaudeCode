@@ -46,6 +46,8 @@ interface PushPayload {
   body: string;
   url?: string;
   tag?: string;
+  /** current Aurora Score: shown as the app-icon badge when the user turned that on */
+  score?: number;
 }
 
 self.addEventListener('push', (event) => {
@@ -55,6 +57,18 @@ self.addEventListener('push', (event) => {
   } catch {
     if (event.data) p.body = event.data.text();
   }
+  // App icon badge (iOS 16.4+ home-screen apps, Chrome): the score at a glance. The page
+  // tells us whether the user enabled it via a tiny cache entry (SW has no localStorage).
+  const badge = (async () => {
+    try {
+      const on = await (await caches.open('prefs')).match('/__pref/icon-badge');
+      const nav = self.navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void> };
+      if (on && typeof p.score === 'number' && nav.setAppBadge) await nav.setAppBadge(Math.round(p.score));
+    } catch {
+      /* unsupported */
+    }
+  })();
+  event.waitUntil(badge);
   event.waitUntil(
     self.registration.showNotification(p.title, {
       body: p.body,

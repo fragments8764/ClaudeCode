@@ -67,3 +67,24 @@ export function compassLabel(bearingDeg: number): string {
   const idx = Math.round((((bearingDeg % 360) + 360) % 360) / 22.5) % 16;
   return pts[idx]!;
 }
+
+/** Aurora bases beyond Iceland. Score, clouds, darkness, moon and the aurora oval work
+ *  anywhere; Iceland-only extras (roads, IMO warnings, ceilometers, curated spots, cloud
+ *  map) switch off outside Iceland — see isIceland(). */
+export const ARCTIC_PLACES: (Place & { country: string })[] = [
+  { id: 'tromso', name: 'Tromsø', region: 'Norway', country: 'NO', lat: 69.6496, lon: 18.956 },
+  { id: 'alta', name: 'Alta', region: 'Norway', country: 'NO', lat: 69.9689, lon: 23.2716 },
+  { id: 'abisko', name: 'Abisko', region: 'Sweden', country: 'SE', lat: 68.3495, lon: 18.8312 },
+  { id: 'rovaniemi', name: 'Rovaniemi', region: 'Finland', country: 'FI', lat: 66.5039, lon: 25.7294 },
+  { id: 'saariselka', name: 'Saariselkä', region: 'Finland', country: 'FI', lat: 68.4183, lon: 27.4103 },
+  { id: 'kangerlussuaq', name: 'Kangerlussuaq', region: 'Greenland', country: 'GL', lat: 67.0086, lon: -50.6892 },
+  { id: 'nuuk', name: 'Nuuk', region: 'Greenland', country: 'GL', lat: 64.1814, lon: -51.6941 },
+  { id: 'yellowknife', name: 'Yellowknife', region: 'Canada', country: 'CA', lat: 62.454, lon: -114.3718 },
+  { id: 'whitehorse', name: 'Whitehorse', region: 'Canada', country: 'CA', lat: 60.7212, lon: -135.0568 },
+  { id: 'churchill', name: 'Churchill', region: 'Canada', country: 'CA', lat: 58.7684, lon: -94.165 },
+  { id: 'fairbanks', name: 'Fairbanks', region: 'Alaska', country: 'US', lat: 64.8378, lon: -147.7164 },
+  { id: 'coldfoot', name: 'Coldfoot', region: 'Alaska', country: 'US', lat: 67.2525, lon: -150.1772 },
+];
+
+/** Roughly Iceland (incl. a coastal margin). */
+export const isIceland = (lat: number, lon: number) => lat >= 62.8 && lat <= 67.2 && lon >= -25.5 && lon <= -12.5;

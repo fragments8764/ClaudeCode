@@ -15,6 +15,8 @@ import { useFeatures } from './lib/features';
 import { speak } from './lib/voice';
 import { useNowcast, useTimeZone } from './lib/api';
 import { setDisplayTimeZone } from './lib/format';
+import { isIceland } from '@nordurljos/core';
+import { useIconBadge } from './lib/badge';
 import { PlanViewer } from './screens/PlanViewer';
 import { startLiveLocation } from './lib/plan';
 import type { RankedSpot } from '@nordurljos/core';
@@ -60,8 +62,10 @@ const loaders = {
   sources: () => import('./sheets/SourcesSheet'),
   feedback: () => import('./sheets/FeedbackSheet'),
   detail: () => import('./sheets/DetailSheets'),
+  beta: () => import('./sheets/BetaFeedbackSheet'),
   metric: () => import('./sheets/MetricSheets'),
 };
+const BetaFeedbackSheet = lazy(() => loaders.beta().then((m) => ({ default: m.BetaFeedbackSheet })));
 const CloudSheet = lazy(() => loaders.detail().then((m) => ({ default: m.CloudSheet })));
 const ActivitySheet = lazy(() => loaders.detail().then((m) => ({ default: m.ActivitySheet })));
 const MoonSheet = lazy(() => loaders.detail().then((m) => ({ default: m.MoonSheet })));
@@ -130,6 +134,7 @@ export default function App() {
   const tzName = useTimeZone(here.lat, here.lon).data?.data.timezone ?? null;
   setDisplayTimeZone(tzName);
   const c = useConditions();
+  useIconBadge(c.score?.score);
   const route = useHashRoute();
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const [tool, setTool] = useState<ToolId | null>(null);
@@ -224,7 +229,7 @@ export default function App() {
   // Lazy sheets mount on first open and stay mounted so their exit animations still play.
   const [mounted, setMounted] = useState<Set<string>>(() => new Set());
   const [planFor, setPlanFor] = useState<{ dest: { name: string; lat: number; lon: number } | null; ret: string | null } | null>(null);
-  const [extra, setExtra] = useState<'privacy' | 'sources' | null>(null);
+  const [extra, setExtra] = useState<'privacy' | 'sources' | 'beta' | null>(null);
   const [driving, setDriving] = useState<null | 'manual' | 'auto'>(null);
   const [feedbackNight, setFeedbackNight] = useState<string | null>(null);
   useEffect(() => {
@@ -469,12 +474,13 @@ export default function App() {
       </Suspense>
       <Suspense fallback={null}>{hasMounted('privacy') && <PrivacySheet open={extra === 'privacy'} onClose={() => setExtra(null)} />}</Suspense>
       <Suspense fallback={null}>{hasMounted('sources') && <SourcesSheet open={extra === 'sources'} onClose={() => setExtra(null)} />}</Suspense>
+      <Suspense fallback={null}>{hasMounted('beta') && <BetaFeedbackSheet open={extra === 'beta'} onClose={() => setExtra(null)} />}</Suspense>
       <LocationSheet open={sheet === 'location'} onClose={close} />
       <ToolsSheet
         open={sheet === 'tools'}
         onClose={close}
         onPick={(id) => (setSheet(null), pickTool(id))}
-        isEnabled={(id) => (id === 'gaps' ? has('route.extras') : id === 'feed' || id === 'sighting' ? has('community') : id === 'outlook' ? has('outlook.5night') : id === 'prepare' ? has('multi-region') : true)}
+        isEnabled={(id) => (id === 'gaps' ? has('route.extras') && isIceland(here.lat, here.lon) : id === 'feed' || id === 'sighting' ? has('community') : id === 'outlook' ? has('outlook.5night') : id === 'prepare' ? has('multi-region') : true)}
       />
       <ClearNowSheet
         open={clearNow}

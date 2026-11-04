@@ -69,6 +69,8 @@ export interface Prefs {
   analytics: boolean;
   /** opt-in crash reports */
   crashReports: boolean;
+  /** show the Aurora Score as a badge on the home-screen icon */
+  iconBadge: boolean;
   /** one-tap battery saver: red-only, dimmed, static sky, slower refresh, paused camera feeds */
   batterySaver: boolean;
   /** spoken alerts while the app is open */
@@ -113,6 +115,7 @@ export const DEFAULT_PREFS: Prefs = {
   preciseLocation: false,
   analytics: false,
   crashReports: false,
+  iconBadge: false,
   batterySaver: false,
   spokenAlerts: false,
   autoDriving: true,

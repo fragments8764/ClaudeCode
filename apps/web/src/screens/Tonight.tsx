@@ -7,7 +7,7 @@ import { Freshness } from '../components/Freshness';
 import { DEMO, DEMO_NAME, type Conditions } from '../lib/conditions';
 import { cloudFactor, kpFactor, levelColor } from '../lib/explain';
 import { dateLabel, hhmm, until } from '../lib/format';
-import { nextDarkNight } from '@nordurljos/core';
+import { isIceland, nextDarkNight } from '@nordurljos/core';
 import { haptic } from '../lib/haptics';
 import { useT } from '../lib/i18n';
 import { chime } from '../lib/sound';
@@ -84,7 +84,7 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
   const { gaps } = useCloudGaps(c.now);
   const localCloudy = (DEMO?.cloud ?? cd?.effective ?? 0) > 40;
   const feat = useFeatures();
-  const gap = feat('route.extras') && localCloudy && !c.plan.noDarkness ? gaps[0] : undefined;
+  const gap = feat('route.extras') && isIceland(location.lat, location.lon) && localCloudy && !c.plan.noDarkness ? gaps[0] : undefined;
   const planOverdue = plan && c.now.getTime() > new Date(plan.returnBy).getTime();
   const [tipTick, setTipTick] = useState(0);
   const w = c.clouds.data?.data.weather;

@@ -1,5 +1,8 @@
 import { motion } from 'motion/react';
-import { CalendarDays, Moon, Star } from 'lucide-react';
+import { CalendarDays, Moon, Share2, Star } from 'lucide-react';
+import { useState } from 'react';
+import { shareFile } from '../lib/share';
+import { Press } from '../ui/Button';
 import { rgb, scoreColor, spring } from '../design/tokens';
 import { useOutlook } from '../lib/api';
 import { dateLabel, hhmm } from '../lib/format';
@@ -14,6 +17,7 @@ export function OutlookSheet({ open, onClose }: { open: boolean; onClose: () => 
   const q = useOutlook(location.lat, location.lon, minDarkness === 'astronomical', open);
   const nights = q.data?.data.nights ?? [];
   const best = nights.find((n) => n.best);
+  const [sharing, setSharing] = useState('');
   const day = (d: string, i: number) => (i === 0 ? 'Tonight' : i === 1 ? 'Tomorrow' : dateLabel(new Date(`${d}T12:00:00Z`), { weekday: 'long' }));
   return (
     <Sheet open={open} onClose={onClose} title="5-night outlook" initial="full" detents={['half', 'full']} header={<StatHeader id="outlook" icon={CalendarDays} label={`5-night outlook · ${location.label}`} value={best ? `Best: ${day(best.date, nights.indexOf(best))}` : q.isLoading ? '…' : 'No good night yet'} />}>
@@ -60,6 +64,25 @@ export function OutlookSheet({ open, onClose }: { open: boolean; onClose: () => 
           );
         })}
       </motion.ul>
+      {nights.length > 0 && (
+        <Press
+          onClick={async () => {
+            setSharing('…');
+            const { renderForecastCard } = await import('../lib/shareCard');
+            const file = await renderForecastCard({
+              place: location.label,
+              night: nightVision,
+              nights: nights.map((n, i) => ({ label: day(n.date, i), score: n.score, window: n.window, cloud: n.meanCloud == null ? null : Math.round(n.meanCloud), kp: n.kpMax, best: n.best })),
+            });
+            const r = await shareFile(file, 'Aurora outlook', `5-night aurora outlook for ${location.label}`);
+            setSharing(r === 'downloaded' ? 'Saved to your downloads' : 'Shared');
+            setTimeout(() => setSharing(''), 3000);
+          }}
+          className="mb-4 h-12 w-full text-[15px]"
+        >
+          <Share2 size={16} strokeWidth={1.75} aria-hidden /> {sharing || 'Share this outlook'}
+        </Press>
+      )}
       <p className="pb-8 text-[12px] leading-relaxed text-ink-3">
         Night 1–3 Kp from NOAA's 3-day forecast, nights 4–5 from the 27-day outlook. Cloud from a 6-day Open-Meteo forecast. Beyond two days, treat this as a trend, not a promise.
       </p>

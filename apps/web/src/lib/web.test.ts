@@ -79,3 +79,27 @@ describe('location-local times (regression: phone in New York showed Iceland tim
     setDisplayTimeZone(null);
   });
 });
+
+import { emergencyNumber } from './format';
+describe('emergency number (regression: "Call 112" shown in Canada/Alaska)', () => {
+  it('uses the location timezone when known', () => {
+    expect(emergencyNumber(64.15, -21.94, 'Atlantic/Reykjavik')).toBe('112');
+    expect(emergencyNumber(62.45, -114.37, 'America/Yellowknife')).toBe('911');
+    expect(emergencyNumber(64.84, -147.72, 'America/Anchorage')).toBe('911');
+    expect(emergencyNumber(64.18, -51.69, 'America/Nuuk')).toBe('112');
+    expect(emergencyNumber(69.65, 18.96, 'Europe/Oslo')).toBe('112');
+  });
+  it('falls back to longitude without a timezone', () => {
+    expect(emergencyNumber(64.84, -147.72, undefined)).toBe('911');
+    expect(emergencyNumber(64.15, -21.94, undefined)).toBe('112');
+  });
+});
+
+import { labelFor } from '../hooks/useGeolocation';
+describe('place names beyond Iceland (regression: Tromsø showed as raw coordinates)', () => {
+  it('names nearby Arctic bases', () => {
+    expect(labelFor(69.6496, 18.956)).toBe('Tromsø');
+    expect(labelFor(64.86, -147.8)).toMatch(/Fairbanks/);
+    expect(labelFor(64.1466, -21.9426)).toBe('Reykjavík');
+  });
+});

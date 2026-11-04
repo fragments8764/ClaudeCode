@@ -1,7 +1,7 @@
 import { track } from '../lib/telemetry';
 import { Check, MapPin, Share2, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { hhmm } from '../lib/format';
+import { emergencyNumber, hhmm } from '../lib/format';
 import { haptic } from '../lib/haptics';
 import { activePlan, cancelPlan, checkIn, createPlan, onPlanChange, planUrl, type ActivePlan } from '../lib/plan';
 import { shareText } from '../lib/share';
@@ -47,7 +47,7 @@ export function PlanSheet({
     const r = await shareText(
       'My aurora plan',
       `${name ? `${name} is` : "I'm"} going aurora hunting at ${p.destination.name} and plans to be back by ${hhmm(p.returnBy)}.` +
-        `${p.shareLocation ? ' Live location is on.' : ''} Plan & check-in status: ${planUrl(p.id)} · If I'm not back and you can't reach me, call 112.`,
+        `${p.shareLocation ? ' Live location is on.' : ''} Plan & check-in status: ${planUrl(p.id)} · If I'm not back and you can't reach me, call ${emergencyNumber(p.destination.lat, p.destination.lon)}.`,
     );
     setMsg(r === 'copied' ? 'Link copied, so paste it to a friend.' : r === 'shared' ? 'Plan shared.' : '');
   };

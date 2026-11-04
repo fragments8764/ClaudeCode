@@ -69,3 +69,14 @@ export function whenDay(iso: string, now: Date): string {
   const tomorrow = localDay(new Date(now.getTime() + 864e5)) === localDay(d);
   return sameDay ? hhmm(iso) : tomorrow ? `tomorrow ${hhmm(iso)}` : dateLabel(d, { weekday: 'short' }) + ' ' + hhmm(iso);
 }
+
+const GREENLAND_TZ = new Set(['America/Nuuk', 'America/Godthab', 'America/Thule', 'America/Scoresbysund', 'America/Danmarkshavn']);
+/**
+ * Emergency number for a place: 911 in Canada/Alaska, 112 in Iceland, the Nordics and
+ * Greenland. Uses the location's timezone when known (the reliable way to tell Greenland
+ * from Canada), else a longitude rule. (Bug fix: "Call 112" was shown everywhere.)
+ */
+export function emergencyNumber(lat: number, lon: number, tz: string | undefined = displayTz): '112' | '911' {
+  if (tz) return tz.startsWith('America/') && !GREENLAND_TZ.has(tz) ? '911' : '112';
+  return lon < -52 && !(lat > 59.5 && lon > -74 && lon < -10 && lat > 76) ? '911' : '112';
+}

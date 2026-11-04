@@ -1,7 +1,7 @@
 import { Check, Clock, MapPin, Phone, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatAge } from '@nordurljos/core';
-import { hhmm } from '../lib/format';
+import { emergencyNumber, hhmm } from '../lib/format';
 import { activePlan, checkIn, fetchPlan, type PublicPlan } from '../lib/plan';
 import { Press } from '../ui/Button';
 import { Glass } from '../ui/Glass';
@@ -60,7 +60,7 @@ export function PlanViewer({ id, wantCheckin }: { id: string; wantCheckin: boole
             {p.status === 'overdue' && (
               <p className="mt-4 flex gap-2 rounded-[var(--r-md)] bg-[rgb(251_113_133/0.12)] p-3 text-[14px] text-ink-2">
                 <TriangleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-poor" aria-hidden />
-                Try calling them first. If you can't reach them and you're worried, call Iceland's emergency number 112 and share this page.
+                Try calling them first. If you can't reach them and you're worried, call the emergency number there ({emergencyNumber(p.destination.lat, p.destination.lon, undefined)}) and share this page.
               </p>
             )}
             {mine && p.status !== 'safe' && (
@@ -68,9 +68,9 @@ export function PlanViewer({ id, wantCheckin }: { id: string; wantCheckin: boole
                 <Check size={18} strokeWidth={2} aria-hidden /> I'm back safe
               </Press>
             )}
-            <a href="tel:112" className="mt-3 block">
+            <a href={`tel:${emergencyNumber(p.destination.lat, p.destination.lon, undefined)}`} className="mt-3 block">
               <Press className="h-12 w-full text-[14px]" tabIndex={-1}>
-                <Phone size={15} strokeWidth={1.75} aria-hidden /> Emergency 112
+                <Phone size={15} strokeWidth={1.75} aria-hidden /> Emergency {emergencyNumber(p.destination.lat, p.destination.lon, undefined)}
               </Press>
             </a>
             <p className="mt-4 text-[12px] text-ink-3">Shared from Norðurljós. This page and any location are deleted 36 h after the planned return.</p>

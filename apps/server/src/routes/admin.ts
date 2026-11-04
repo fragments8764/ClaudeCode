@@ -2,7 +2,7 @@
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function renderAdmin(r: any): string {
+export function renderAdmin(r: any, beta: { notes: any[]; token: string } = { notes: [], token: '' }): string {
   const cal = r.calibration;
   const bt = r.backtest as any;
   const bar = (v: number | null) => (v == null ? '—' : `<span class="bar" style="width:${Math.round(v * 100)}%"></span> ${Math.round(v * 100)}%`);
@@ -35,6 +35,14 @@ ${cal.buckets.map((b: any) => `<tr><td>${esc(b.range)}</td><td>${esc(b.n)}</td><
 <h2>Recent outcomes</h2><div class="card"><table><tr><th>Night</th><th>Cell</th><th>Saw</th><th>Predicted</th><th>From</th></tr>
 ${(r.outcomes.recent as any[]).map((o) => `<tr><td>${esc(o.night)}</td><td>${esc(o.lat)}, ${esc(o.lon)}</td><td>${o.saw ? 'yes' : 'no'}</td><td>${esc(o.predicted ?? '—')}</td><td class="muted">${esc(o.predictedFrom ?? '')}</td></tr>`).join('')}
 </table></div>
+<h2>Beta feedback (${beta.notes.length})</h2><div class="card">${
+    beta.notes.length
+      ? `<table><tr><th>When</th><th>Message</th><th>Screen</th><th>Version · device</th><th>Screenshot</th></tr>${beta.notes
+          .slice(0, 100)
+          .map((n: any) => `<tr><td class="muted">${esc(String(n.at).slice(0, 16).replace('T', ' '))}</td><td>${esc(n.message)}</td><td>${esc(n.screen)}</td><td class="muted">${esc(n.version)} · ${esc(n.device)}</td><td>${n.shot ? `<a href="/api/admin/beta-feedback/${esc(n.id)}/screenshot?token=${encodeURIComponent(beta.token)}">view</a>` : '—'}</td></tr>`)
+          .join('')}</table>`
+      : '<p class="muted">None yet. Testers send it from Settings → Send beta feedback.</p>'
+  }</div>
 <h2>Current weights</h2><div class="card"><pre>${esc(JSON.stringify(r.weights.weights, null, 2))}</pre></div>
 </body></html>`;
 }

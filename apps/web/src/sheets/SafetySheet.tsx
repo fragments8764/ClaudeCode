@@ -3,7 +3,7 @@ import { BatteryCharging, Phone, Share2, ShieldAlert, Snowflake, TriangleAlert, 
 import { useState } from 'react';
 import type { Conditions } from '../lib/conditions';
 import { useSafety } from '../lib/api';
-import { hhmm, temp, wind } from '../lib/format';
+import { emergencyNumber, hhmm, temp, wind } from '../lib/format';
 import { shareText } from '../lib/share';
 import { useSettings } from '../lib/store';
 import { Press } from '../ui/Button';
@@ -37,7 +37,7 @@ export function SafetySheet({ c, open, onClose, onPlan }: { c: Conditions; open:
       'My aurora plan',
       `I'm out aurora hunting near ${location.label}${c.best ? ` between ${hhmm(c.best.start)} and ${hhmm(c.best.end)}` : ' tonight'}.` +
         (back ? ` I expect to be back around ${back}.` : '') +
-        ` Location: https://maps.google.com/?q=${location.lat.toFixed(4)},${location.lon.toFixed(4)} · Emergency in Iceland: 112.`,
+        ` Location: https://maps.google.com/?q=${location.lat.toFixed(4)},${location.lon.toFixed(4)} · Emergency: ${emergencyNumber(location.lat, location.lon)}.`,
     );
     setShared(r === 'copied' ? 'Plan copied, so paste it to a friend.' : r === 'shared' ? 'Plan shared.' : '');
   };
@@ -101,9 +101,9 @@ export function SafetySheet({ c, open, onClose, onPlan }: { c: Conditions; open:
       <p className="mt-1 text-[12px] text-ink-3">Source: Vegagerðin. For closures on your exact route, check umferdin.is before you leave.</p>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <a href="tel:112">
+        <a href={`tel:${emergencyNumber(location.lat, location.lon)}`}>
           <Press className="h-14 w-full text-[15px]" tabIndex={-1}>
-            <Phone size={16} strokeWidth={1.75} aria-hidden /> Call 112
+            <Phone size={16} strokeWidth={1.75} aria-hidden /> Call {emergencyNumber(location.lat, location.lon)}
           </Press>
         </a>
         <Press className="h-14 w-full text-[15px]" onClick={onPlan ?? plan}>

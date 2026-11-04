@@ -13,7 +13,7 @@ export const TIPS: Tip[] = [
   { id: 'windchill', title: 'Dress for the wind chill', body: 'What it feels like matters more than the thermometer. Wear layers, a hat, windproof shell and warm gloves, and bring a thermos.' },
   { id: 'fuel', title: 'Keep the tank above half', body: 'Stations are far apart and some close early. You will idle with the heater on while you wait.' },
   { id: 'lights', title: 'Headlights off when parked', body: 'Kill your lights (and the interior light) at viewpoints, so you don’t blind other people’s cameras or your own eyes.' },
-  { id: 'gusts', title: 'Strong gusts: hold your car door', body: 'Iceland’s gusts rip doors off rental cars. Open them with both hands, nose into the wind.' },
+  { id: 'gusts', title: 'Strong gusts: hold your car door', body: 'Arctic gusts can rip a car door off its hinges. Open it with both hands, nose into the wind.' },
 ];
 
 const KEY = 'nl-tips-dismissed';
