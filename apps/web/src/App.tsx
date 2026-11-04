@@ -14,6 +14,7 @@ import { startTelemetry, track } from './lib/telemetry';
 import { useFeatures } from './lib/features';
 import { speak } from './lib/voice';
 import { useNowcast, useTimeZone } from './lib/api';
+import { useOnline } from './lib/net';
 import { setDisplayTimeZone } from './lib/format';
 import { isIceland } from '@nordurljos/core';
 import { useIconBadge } from './lib/badge';
@@ -98,20 +99,7 @@ const SettingsSheet = lazy(() => loaders.settings().then((m) => ({ default: m.Se
 const ORDER: Tab[] = ['tonight', 'map', 'cameras', 'space'];
 const isTab = (s: string): s is Tab => (ORDER as string[]).includes(s);
 
-function useOnline() {
-  const [online, setOnline] = useState(() => navigator.onLine);
-  useEffect(() => {
-    const up = () => setOnline(true);
-    const down = () => setOnline(false);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-  return online;
-}
+// useOnline lives in lib/net.ts (navigator.onLine + whether requests actually get through)
 
 function useHashRoute() {
   const [h, setH] = useState(() => location.hash.replace(/^#\/?/, ''));

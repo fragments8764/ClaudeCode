@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { snapCoord } from '@nordurljos/core';
 import { useSettings } from './store';
+import { reportNetwork } from './net';
 import { resolveWeights, type Corridor, type RoadRoute, type NightOutlook, type ValueGrid, type Spot, type Weights } from '@nordurljos/core';
 import type { AuroraAt, Camera, ClearNow, Clouds, Envelope, Health, NowcastData, OvationGridData, SafetyData, SightingData, SpaceWeather } from './types';
 
@@ -11,7 +12,15 @@ export async function getJson<T>(path: string, timeoutMs = 12_000): Promise<T> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
+    } catch (e) {
+      reportNetwork(false); // timed out / no route to the server
+      throw e;
+    }
+    // the service worker reports cache fallbacks itself; a direct answer means we're through
+    if (!navigator.serviceWorker?.controller) reportNetwork(true);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
   } finally {

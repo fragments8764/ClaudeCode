@@ -17,7 +17,8 @@
     "start": "npm run start -w @nordurljos/server",
     "test": "vitest run",
     "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web",
-    "backtest": "npm run backtest -w @nordurljos/server"
+    "backtest": "npm run backtest -w @nordurljos/server",
+    "e2e": "node e2e/offline.e2e.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

@@ -28,9 +28,18 @@ registerRoute(
   new NetworkFirst({
     cacheName: 'api',
     networkTimeoutSeconds: 6,
-    plugins: [new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 24 * 3600 }), new CacheableResponsePlugin({ statuses: [200] })],
+    plugins: [
+      // tell open pages whether the network really answered (they show "Offline · data from…")
+      {
+        fetchDidSucceed: async ({ response }) => (void notifyNet(true), response),
+        fetchDidFail: async () => void notifyNet(false),
+      },new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 24 * 3600 }), new CacheableResponsePlugin({ statuses: [200] })],
   }),
 );
+
+async function notifyNet(ok: boolean) {
+  for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: 'net', ok });
+}
 
 export const TILE_CACHE = 'map-tiles';
 registerRoute(
