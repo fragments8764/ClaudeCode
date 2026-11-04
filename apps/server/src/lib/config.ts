@@ -16,8 +16,10 @@ export interface CameraDef {
   lat: number;
   lon: number;
   kind: string;
-  embed: 'image' | 'link';
+  embed: 'image' | 'link' | 'video';
   imageUrl?: string;
+  /** embed: 'video' — a stream whose owner allows embedding (checked via oEmbed) */
+  video?: { provider: 'youtube'; id: string };
   pageUrl: string;
   attribution: string;
   refreshMin?: number;

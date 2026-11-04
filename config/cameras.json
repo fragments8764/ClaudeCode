@@ -2,6 +2,24 @@
   "$comment": "Camera wall. embed:'image' = a public still image we may proxy & show with attribution — ONLY when the operator's terms allow it (record it in 'terms' and set embedPermission:'granted'). embed:'link' = open the operator's own page. Never scrape pages. Add/remove entries freely.",
   "cameras": [
     {
+      "id": "churchill-aurora",
+      "name": "Northern Lights Cam, Churchill",
+      "region": "Manitoba, Canada",
+      "country": "CA",
+      "lat": 58.7339,
+      "lon": -93.8197,
+      "kind": "allsky",
+      "embed": "video",
+      "video": {
+        "provider": "youtube",
+        "id": "a0i1Kg6fROg"
+      },
+      "pageUrl": "https://explore.org/livecams/zen-den/northern-lights-cam",
+      "attribution": "explore.org · Polar Bears International · Churchill Northern Studies Centre",
+      "terms": "Published by explore.org on YouTube with embedding enabled (checked via YouTube oEmbed, 2026-11-04). Plays in YouTube's own player; no re-hosting.",
+      "note": "Live video, plays in the app. Under the auroral oval, so it often shows aurora when Iceland is cloudy."
+    },
+    {
       "id": "perlan-n",
       "name": "Reykjavík from Perlan (north)",
       "region": "Reykjavík",

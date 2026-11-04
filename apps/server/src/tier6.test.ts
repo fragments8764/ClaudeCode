@@ -81,3 +81,20 @@ describe('timezone lookup', () => {
     expect(parseTimezone(null)).toEqual({ timezone: null, utcOffsetSec: null });
   });
 });
+
+import { parseOembed } from './routes/extras';
+describe('live video cameras', () => {
+  it('treats a YouTube oEmbed with an iframe as embeddable', () => {
+    expect(parseOembed({ title: 'Northern Lights powered by EXPLORE.org', html: '<iframe width="200" src="https://www.youtube.com/embed/a0i1Kg6fROg"></iframe>' })).toEqual({ embeddable: true, title: 'Northern Lights powered by EXPLORE.org' });
+    expect(parseOembed({}).embeddable).toBe(false);
+  });
+  it('falls back to a link when the stream cannot be embedded', async () => {
+    const cam = { id: 'v1', name: 'Vid', region: 'X', country: 'CA', lat: 58.7, lon: -93.8, kind: 'allsky', embed: 'video' as const, video: { provider: 'youtube' as const, id: 'gone_______' }, pageUrl: 'https://example.org', attribution: 'x' };
+    const fetchImpl = vi.fn(async (url: string) => (url.includes('oembed') ? new Response('Not Found', { status: 404 }) : new Response(JSON.stringify([{ current: { cloud_cover: 10 } }]), { headers: { 'content-type': 'application/json' } })));
+    const app = createApp({ fetcher: new Fetcher({ fetchImpl: fetchImpl as never, retries: 0 }), inlineConfig: { cameras: [cam] } } as never);
+    const r = await (await app.request('/api/cameras')).json();
+    expect(r.data[0].embed).toBe('link');
+    expect(r.data[0].status).toBe('link');
+    expect(r.data[0].video).toBeUndefined();
+  });
+});

@@ -102,8 +102,12 @@ export interface Camera {
   lat: number;
   lon: number;
   kind: string;
-  embed: 'image' | 'link';
+  embed: 'image' | 'link' | 'video';
   image: string | null;
+  /** embed: 'video' — stream allowed to be embedded (checked by the server) */
+  video?: { provider: 'youtube'; id: string };
+  /** proxied still for video streams */
+  poster?: string | null;
   pageUrl: string;
   attribution: string;
   note?: string;

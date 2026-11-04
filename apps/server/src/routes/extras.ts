@@ -61,6 +61,8 @@ export const UP2 = {
     `${openMeteoHost()}/v1/forecast?latitude=${pts.map((p) => p.lat).join(',')}&longitude=${pts.map((p) => p.lon).join(',')}${openMeteoKey()}` +
     '&current=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&timezone=GMT',
   kp1m: 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json',
+  // 200 = exists and its owner allows embedding; 401/403/404 = private, ended or not embeddable
+  ytOembed: (id: string) => `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`,
   tz: (lat: number, lon: number) => `${openMeteoHost()}/v1/forecast?latitude=${lat}&longitude=${lon}${openMeteoKey()}&timezone=auto&forecast_days=1&daily=sunrise`,
   kp27: 'https://services.swpc.noaa.gov/text/27-day-outlook.txt',
   clouds6: (lat: number, lon: number) =>
@@ -286,14 +288,24 @@ export function registerExtras(app: Hono, ctx: Ctx) {
     ]);
     const clouds = val(cl);
     const imgs = await Promise.allSettled(cams.map((cam) => (cam.embed === 'image' && cam.imageUrl ? camImage(cam) : Promise.reject(new Error('link')))));
+    // video streams: is it still up and embeddable? (cached 1 h; a failed check → link-out)
+    const vids = await Promise.allSettled(
+      cams.map((cam) => (cam.embed === 'video' && cam.video?.provider === 'youtube' ? fetcher.get('youtube-oembed', UP2.ytOembed(cam.video.id), (x) => parseOembed(x), `yt:${cam.video.id}`) : Promise.reject(new Error('n/a')))),
+    );
     const data = cams.map((cam, i) => {
       const r = imgs[i]!;
       const img = r.status === 'fulfilled' ? r.value : null;
+      const vr = vids[i]!;
+      const vidOk = cam.embed === 'video' && vr.status === 'fulfilled' && vr.value.value.embeddable;
       return {
         ...cam,
         imageUrl: undefined,
+        // honest fallback: a stream that can't be embedded right now behaves like a link
+        embed: cam.embed === 'video' && !vidOk ? 'link' : cam.embed,
+        video: vidOk ? cam.video : undefined,
         image: cam.embed === 'image' ? `/api/cameras/${cam.id}/image` : null,
-        status: cam.embed === 'link' ? 'link' : img && !img.stale ? 'live' : img ? 'stale' : 'offline',
+        poster: vidOk ? `/api/cameras/${cam.id}/image` : null,
+        status: cam.embed === 'video' ? (vidOk ? 'live' : 'link') : cam.embed === 'link' ? 'link' : img && !img.stale ? 'live' : img ? 'stale' : 'offline',
         updatedAt: img ? (img.value.lastModified ? new Date(img.value.lastModified).toISOString() : img.fetchedAt) : null,
         cloudNow: clouds?.[i] ?? null,
         frames: frames.list(cam.id).length,
@@ -303,11 +315,14 @@ export function registerExtras(app: Hono, ctx: Ctx) {
   });
 
   app.get('/api/cameras/:id/image', async (c) => {
-    const cam = camById(c.req.param('id'));
-    if (!cam || cam.embed !== 'image' || !cam.imageUrl) return c.json({ error: 'not found' }, 404);
+    const def = camById(c.req.param('id'));
+    // video streams: proxy YouTube's live thumbnail so the Cameras tab never contacts YouTube
+    // until someone actually taps play
+    const cam = def?.embed === 'video' && def.video?.provider === 'youtube' ? { ...def, imageUrl: `https://i.ytimg.com/vi/${def.video.id}/hqdefault_live.jpg`, refreshMin: 5 } : def;
+    if (!cam || (cam.embed !== 'image' && cam.embed !== 'video') || !cam.imageUrl) return c.json({ error: 'not found' }, 404);
     try {
       const r = await camImage(cam);
-      if (!r.stale) frames.add(cam.id, { at: r.fetchedAt, contentType: r.value.contentType, bytes: r.value.bytes });
+      if (!r.stale && cam.embed === 'image') frames.add(cam.id, { at: r.fetchedAt, contentType: r.value.contentType, bytes: r.value.bytes });
       return new Response(r.value.bytes as unknown as BodyInit, {
         headers: { 'Content-Type': r.value.contentType, 'Cache-Control': 'public, max-age=120', 'X-Fetched-At': r.fetchedAt, 'X-Stale': String(r.stale) },
       });
@@ -1034,4 +1049,10 @@ export function parseTimezone(raw: unknown): { timezone: string | null; utcOffse
   const o = (raw ?? {}) as { timezone?: unknown; utc_offset_seconds?: unknown };
   const tz = typeof o.timezone === 'string' && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(o.timezone) && o.timezone !== 'GMT' ? o.timezone : null;
   return { timezone: tz, utcOffsetSec: typeof o.utc_offset_seconds === 'number' ? o.utc_offset_seconds : null };
+}
+
+/** YouTube oEmbed JSON → embeddable? (non-200s throw in the fetcher and count as "no") */
+export function parseOembed(raw: unknown): { embeddable: boolean; title: string | null } {
+  const o = (raw ?? {}) as { html?: unknown; title?: unknown };
+  return { embeddable: typeof o.html === 'string' && o.html.includes('<iframe'), title: typeof o.title === 'string' ? o.title : null };
 }

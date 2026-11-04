@@ -40,6 +40,11 @@ export const PROVIDER_TERMS: Record<string, { license: string; terms: string; ur
     flag: 'Ask DTU Space / SGU before a commercial launch.',
   },
   Cameras: { license: 'Per camera', terms: 'Each camera lists its owner and terms; images are embedded only with permission, otherwise we link to the operator.', url: '' },
+  YouTube: {
+    license: 'YouTube Terms of Service (embedded player)',
+    terms: 'Only streams whose owners enable embedding are played, inside YouTube’s own privacy-enhanced player and only after you tap play. Each stream credits its owner.',
+    url: 'https://www.youtube.com/t/terms',
+  },
   OpenFreeMap: { license: '© OpenMapTiles © OpenStreetMap contributors (ODbL)', terms: 'Free, no key; attribution required. Consider a donation or self-hosting at scale.', url: 'https://openfreemap.org/' },
   'NASA GIBS': { license: 'NASA open data', terms: 'Free to use with credit to NASA EOSDIS GIBS / VIIRS.', url: 'https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api' },
   'NASA OMNI2 (backtest only)': { license: 'NASA open data', terms: 'Credit NASA/GSFC Space Physics Data Facility OMNIWeb.', url: 'https://omniweb.gsfc.nasa.gov/' },
@@ -241,6 +246,16 @@ export const SOURCES = {
     homepage: 'https://open-meteo.com/',
     ttlMs: 30 * 24 * 60 * MIN,
     staleMs: 365 * 24 * 60 * MIN,
+    timeoutMs: 8000,
+  },
+  'youtube-oembed': {
+    id: 'youtube-oembed',
+    provider: 'YouTube',
+    name: 'YouTube embed check (live camera streams)',
+    attribution: 'Video streams via YouTube, © their owners',
+    homepage: 'https://www.youtube.com/',
+    ttlMs: 60 * MIN,
+    staleMs: 6 * 60 * MIN,
     timeoutMs: 8000,
   },
 } satisfies Record<string, SourceDef>;

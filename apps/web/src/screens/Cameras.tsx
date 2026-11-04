@@ -46,6 +46,23 @@ function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; fra
     return () => clearInterval(id);
   }, [saver]);
   const Icon = KIND_ICON[cam.kind] ?? CamIcon;
+  if (cam.embed === 'video' && cam.poster && !big) {
+    return (
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-black">
+        {!loaded && <div className="skeleton absolute inset-0 rounded-none" />}
+        <img src={apiUrl(`${cam.poster}?t=${tick}`)} alt={`Live video from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[rgb(0_0_0/0.55)] px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" aria-hidden /> Live video
+        </span>
+        <span className="absolute inset-0 grid place-items-center" aria-hidden>
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(0_0_0/0.5)]">
+            <Play size={18} strokeWidth={2} className="translate-x-[1px]" />
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (cam.embed === 'video' && big) return <VideoPlayer cam={cam} />;
   if (!cam.image) {
     return (
       <div className={`grid h-full w-full place-items-center ${big ? '' : 'aspect-[4/3]'}`} style={{ background: 'radial-gradient(120% 90% at 30% 10%, rgb(var(--aurora-rgb) / 0.22), transparent 60%), linear-gradient(160deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.01))' }}>
@@ -62,6 +79,40 @@ function Thumb({ cam, big = false, frameSrc }: { cam: Camera; big?: boolean; fra
       {!loaded && <div className="skeleton absolute inset-0 rounded-none" />}
       <img src={src} alt={`Latest image from ${cam.name}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} className={`h-full w-full ${big ? 'object-contain' : 'object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
     </div>
+  );
+}
+
+/**
+ * In-app live video for streams whose owner allows embedding. Privacy: nothing loads from
+ * YouTube until you tap play (the poster is proxied by our server); then YouTube's
+ * privacy-enhanced player (youtube-nocookie.com) plays it, muted first because phones only
+ * autoplay muted video.
+ */
+function VideoPlayer({ cam }: { cam: Camera }) {
+  const [on, setOn] = useState(false);
+  const id = cam.video?.id;
+  if (!id) return null;
+  if (!on)
+    return (
+      <button onClick={() => (haptic('tap'), setOn(true))} className="relative h-full w-full bg-black" aria-label={`Play live video from ${cam.name}`}>
+        {cam.poster && <img src={apiUrl(cam.poster)} alt="" className="h-full w-full object-contain opacity-80" />}
+        <span className="absolute inset-0 grid place-items-center">
+          <span className="grid h-16 w-16 place-items-center rounded-full bg-[rgb(0_0_0/0.55)] shadow-[0_0_30px_rgb(0_0_0/0.6)]">
+            <Play size={26} strokeWidth={2} className="translate-x-[2px]" aria-hidden />
+          </span>
+        </span>
+        <span className="absolute bottom-2 left-2 rounded-full bg-[rgb(0_0_0/0.55)] px-2.5 py-1 text-[11px] text-ink-2">Plays via YouTube · starts muted</span>
+      </button>
+    );
+  return (
+    <iframe
+      className="h-full w-full"
+      src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`}
+      title={`Live video: ${cam.name}`}
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowFullScreen
+      referrerPolicy="strict-origin-when-cross-origin"
+    />
   );
 }
 
@@ -138,7 +189,7 @@ export function CameraViewer({ cam, onClose }: { cam: Camera | null; onClose: ()
               <div className="mt-4 flex gap-2">
                 <a href={cam.pageUrl} target="_blank" rel="noreferrer" className="flex-1">
                   <Press variant={cam.embed === 'link' ? 'accent' : 'glass'} className="h-14 w-full text-[15px] font-medium" tabIndex={-1}>
-                    <ExternalLink size={17} strokeWidth={1.75} aria-hidden /> {cam.embed === 'link' ? 'Open live stream' : 'Open source site'}
+                    <ExternalLink size={17} strokeWidth={1.75} aria-hidden /> {cam.embed === 'link' ? 'Open live stream' : cam.embed === 'video' ? 'Open on the operator’s site' : 'Open source site'}
                   </Press>
                 </a>
                 <Press onClick={onClose} className="h-14 px-5" aria-label="Close camera">
