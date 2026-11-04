@@ -25,7 +25,7 @@ import { PullToRefresh } from '../ui/PullToRefresh';
 import { ScoreRing } from '../ui/ScoreRing';
 import { StatPill } from '../ui/StatPill';
 
-export type SheetId = 'cloud' | 'activity' | 'moon' | 'settings' | 'location' | 'tools';
+export type SheetId = 'cloud' | 'activity' | 'moon' | 'settings' | 'location' | 'tools' | 'score' | 'bz' | 'speed' | 'density';
 
 const item = {
   hidden: { opacity: 0, y: 14 },
@@ -146,9 +146,15 @@ export function TonightScreen({ c, open, openTool, onFeedback, online, onPlan }:
 
         {/* Hero */}
         <div className={`flex flex-1 flex-col items-center justify-center ${short ? 'py-3' : 'py-6'}`}>
-          <motion.div variants={item}>
+          <motion.button
+            variants={item}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => open('score')}
+            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--aurora-rgb))]"
+            aria-label={s ? `Aurora score ${s.score} of 100. Why this score?` : 'Aurora score loading'}
+          >
             <ScoreRing score={s?.score ?? null} size={ringSize} night={night} celebrate={celebrate} />
-          </motion.div>
+          </motion.button>
           <motion.h1 variants={item} className={`on-sky text-center font-display font-light leading-tight ${short ? 'mt-4 text-[27px]' : 'mt-6 text-[30px]'}`} aria-live="polite">
             {s ? t(`verdict.${s.verdict}`) : ' '}
           </motion.h1>

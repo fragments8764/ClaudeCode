@@ -23,6 +23,7 @@ import { shareFile } from './lib/share';
 import { setPadIntensity, startPad, stopPad } from './lib/sound';
 import { applyPrefs, useReducedMotionPref, useSettings, type Tab } from './lib/store';
 import { ActivitySheet, CloudSheet, MoonSheet } from './sheets/DetailSheets';
+import { BzSheet, DensitySheet, ScoreSheet, SpeedSheet } from './sheets/MetricSheets';
 import { ClearNowSheet } from './sheets/ClearNowSheet';
 import { LocationSheet } from './sheets/LocationSheet';
 import { SafetySheet } from './sheets/SafetySheet';
@@ -363,7 +364,7 @@ export default function App() {
       case 'tonight':
         return <TonightScreen c={c} online={online} open={(s) => (s === 'tools' ? setTool(null) : null, setSheet(s))} openTool={(id) => setTool(id)} onFeedback={setFeedbackNight} onPlan={() => openPlan(null)} />;
       case 'space':
-        return <SpaceScreen c={c} />;
+        return <SpaceScreen c={c} open={setSheet} />;
       case 'map':
         return (
           <Suspense fallback={<div className="grid min-h-dvh place-items-center"><div className="skeleton h-10 w-48 rounded-full" /></div>}>
@@ -433,6 +434,10 @@ export default function App() {
           <CloudSheet c={c} open={sheet === 'cloud'} onClose={close} />
           <ActivitySheet c={c} open={sheet === 'activity'} onClose={close} />
           <MoonSheet c={c} open={sheet === 'moon'} onClose={close} />
+          <ScoreSheet c={c} open={sheet === 'score'} onClose={close} />
+          <BzSheet c={c} open={sheet === 'bz'} onClose={close} />
+          <SpeedSheet c={c} open={sheet === 'speed'} onClose={close} />
+          <DensitySheet c={c} open={sheet === 'density'} onClose={close} />
         </LayoutGroup>
       )}
 

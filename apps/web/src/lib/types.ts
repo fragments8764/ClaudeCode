@@ -47,6 +47,8 @@ export interface Clouds {
   hourly: CloudLayers[];
   weather: { temperature: number | null; feelsLike: number | null; windSpeed: number | null; windGust: number | null } | null;
   fallback?: string | null;
+  /** a nearby ceilometer settled a disagreement between the models */
+  observed?: { name: string; distanceKm: number; time: string; percent: number; picked: string } | null;
 }
 
 export interface Health {

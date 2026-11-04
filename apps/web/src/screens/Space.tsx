@@ -1,4 +1,6 @@
 import { motion } from 'motion/react';
+import { ChevronRight } from 'lucide-react';
+import type { SheetId } from './Tonight';
 import type { ReactNode } from 'react';
 import { Freshness } from '../components/Freshness';
 import { spring, STAGGER } from '../design/tokens';
@@ -12,13 +14,25 @@ import { Sparkline } from '../ui/Sparkline';
 
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: spring } };
 
-function Metric({ title, value, tone, caption, children }: { title: string; value: string; tone?: string; caption: string; children?: ReactNode }) {
+function Metric({ title, value, tone, caption, children, onOpen }: { title: string; value: string; tone?: string; caption: string; children?: ReactNode; onOpen?: () => void }) {
   return (
     <motion.div variants={item}>
-      <Glass radius="xl" className="p-5">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.22em] text-ink-3">{title}</h2>
-          <span className={`font-display text-[28px] font-light tabular-nums ${tone ?? ''}`}>{value}</span>
+      <Glass radius="xl" className="relative p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[11px] uppercase tracking-[0.22em] text-ink-3">
+            {onOpen ? (
+              // whole card is the target (stretched button); the heading names it for screen readers
+              <button onClick={onOpen} className="text-left uppercase after:absolute after:inset-0 after:rounded-[inherit] after:content-['']" aria-label={`${title}: ${value}. Open details`}>
+                {title}
+              </button>
+            ) : (
+              title
+            )}
+          </h2>
+          <span className={`flex items-center gap-1 font-display text-[28px] font-light tabular-nums ${tone ?? ''}`}>
+            {value}
+            {onOpen && <ChevronRight size={18} strokeWidth={1.5} className="text-ink-3" aria-hidden />}
+          </span>
         </div>
         {children && <div className="mt-3">{children}</div>}
         <p className="mt-3 text-[14px] leading-relaxed text-ink-2">{caption}</p>
@@ -58,7 +72,7 @@ function KpBars({ series, now }: { series: { time: string; kp: number; kind: str
   );
 }
 
-export function SpaceScreen({ c }: { c: Conditions }) {
+export function SpaceScreen({ c, open }: { c: Conditions; open?: (s: SheetId) => void }) {
   const t = useT();
   const d = c.sw.data?.data;
   const kp = kpFactor(d?.kp.now?.kp ?? null);
@@ -81,19 +95,20 @@ export function SpaceScreen({ c }: { c: Conditions }) {
 
       <NowcastCard />
 
-      <Metric title="Kp index" value={d?.kp.now ? d.kp.now.kp.toFixed(1) : '—'} tone={levelColor[kp.level]} caption={`${kp.sentence}${d?.kp.max24h ? ` Peak in the next day: Kp ${d.kp.max24h.kp.toFixed(1)} around ${hhmm(d.kp.max24h.time)}.` : ''}`}>
+      <Metric onOpen={open && (() => open('activity'))} title="Kp index" value={d?.kp.now ? d.kp.now.kp.toFixed(1) : '—'} tone={levelColor[kp.level]} caption={`${kp.sentence}${d?.kp.max24h ? ` Peak in the next day: Kp ${d.kp.max24h.kp.toFixed(1)} around ${hhmm(d.kp.max24h.time)}.` : ''}`}>
         {d && <KpBars series={d.kp.series} now={c.now} />}
       </Metric>
 
-      <Metric title="Bz · last 6 h" value={bz.value} tone={levelColor[bz.level]} caption={`${bz.sentence} Below the dotted line means south.`}>
+      <Metric onOpen={open && (() => open('bz'))} title="Bz · last 6 h" value={bz.value} tone={levelColor[bz.level]} caption={`${bz.sentence} Below the dotted line means south.`}>
         <Sparkline values={(d?.solarWind.mag6h ?? []).map((p) => p.bz)} zero={0} color="var(--c-violet)" label="Bz over the last 6 hours" />
       </Metric>
 
-      <Metric title="Solar wind speed" value={sp.value} tone={levelColor[sp.level]} caption={sp.sentence}>
+      <Metric onOpen={open && (() => open('speed'))} title="Solar wind speed" value={sp.value} tone={levelColor[sp.level]} caption={sp.sentence}>
         <Sparkline values={(d?.solarWind.wind6h ?? []).map((p) => p.speed)} color="var(--c-teal)" label="Solar wind speed over the last 6 hours" />
       </Metric>
 
       <Metric
+        onOpen={open && (() => open('density'))}
         title="Density"
         value={d?.solarWind.latest?.density != null ? `${d.solarWind.latest.density.toFixed(1)}/cm³` : '—'}
         caption="How many particles are in the solar wind. Denser gusts push harder on Earth's field."
@@ -103,7 +118,7 @@ export function SpaceScreen({ c }: { c: Conditions }) {
 
       <motion.p variants={item} className="on-sky px-1 pt-2 text-[12px] leading-relaxed text-ink-3">
         {d?.solarWind.spacecraft ? `Measured by ${d.solarWind.spacecraft} at L1, ~1.5 million km sunward — about 30–60 min before it reaches Earth. ` : ''}
-        Data: NOAA Space Weather Prediction Center..
+        Data: NOAA Space Weather Prediction Center.
       </motion.p>
     </motion.div>
   );

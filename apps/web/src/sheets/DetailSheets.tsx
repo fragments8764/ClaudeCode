@@ -9,20 +9,21 @@ import { displayTimeZone, hhmm, temp, timeZoneDiffers, whenDay, wind } from '../
 import { useReducedMotionPref, useSettings } from '../lib/store';
 import { Sheet } from '../ui/Sheet';
 import { StatHeader } from '../ui/StatPill';
+import { ChartSection, KpChart } from './MetricSheets';
 
 const CONF: Record<string, string> = {
   high: 'Two forecasts agree',
   medium: 'Forecasts roughly agree',
-  low: 'Forecasts disagree — low confidence',
+  low: 'Forecasts disagree',
   'single-source': 'One forecast available',
   none: 'No forecast',
 };
 
 function Row({ k, v, tone }: { k: string; v: string; tone?: string }) {
   return (
-    <div className="flex items-baseline justify-between py-2.5">
-      <span className="text-[14px] text-ink-2">{k}</span>
-      <span className={`text-[15px] font-medium tabular-nums ${tone ?? ''}`}>{v}</span>
+    <div className="flex items-baseline justify-between gap-4 py-2.5">
+      <span className="shrink-0 text-[14px] text-ink-2">{k}</span>
+      <span className={`min-w-0 text-right text-[15px] font-medium tabular-nums ${tone ?? ''}`}>{v}</span>
     </div>
   );
 }
@@ -93,29 +94,26 @@ export function CloudSheet({ c, open, onClose }: { c: Conditions; open: boolean;
         <p className="mt-2 text-[15px] text-good">Clear spell after dark around {whenDay(nextClear.time, c.now)}.</p>
       )}
 
-      <h3 className="mb-2 mt-7 text-[11px] uppercase tracking-[0.22em] text-ink-3">Next 24 hours</h3>
-      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label="Hourly cloud cover for the next 24 hours">
-        {hours.map((h, i) => {
-          const dark = inDark(h.time);
-          return (
-            <motion.div
-              key={h.time}
-              className="flex-1 rounded-t-[4px]"
-              style={{ background: dark ? 'rgb(var(--aurora-rgb) / 0.55)' : 'rgb(255 255 255 / 0.18)' }}
-              initial={{ height: 2 }}
-              animate={{ height: `${Math.max(4, h.total ?? 0)}%` }}
-              transition={{ ...spring, delay: i * 0.015 }}
-              title={`${hhmm(h.time)} ${h.total}%`}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-1 flex justify-between text-[11px] tabular-nums text-ink-3">
-        {hours.filter((_, i) => i % 6 === 0).map((h) => (
-          <span key={h.time}>{hhmm(h.time)}</span>
-        ))}
-      </div>
-      <p className="mt-1 text-[12px] text-ink-3">Coloured bars are during darkness.</p>
+      {d?.observed && (
+        <p className="mt-3 rounded-[var(--r-md)] bg-[rgb(255_255_255/0.05)] p-3 text-[13px] text-ink-2">
+          The two forecasts disagreed, so we checked the real sky: the {d.observed.name} cloud sensor ({d.observed.distanceKm} km away) sees about {d.observed.percent}% cloud, so this uses the {d.observed.picked === 'open-meteo' ? 'Open-Meteo' : 'MET Norway'} forecast.
+        </p>
+      )}
+
+      <ChartSection
+        title="Next 24 hours"
+        points={hours.map((h) => ({ t: Date.parse(h.time), v: h.total }))}
+        now={c.now}
+        fmt={(v) => String(Math.round(v))}
+        unit="%"
+        min={0}
+        max={100}
+        color="rgb(203 213 225)"
+        bands={c.plan.darkIntervals.map((iv) => [Date.parse(iv.start), Date.parse(iv.end)] as [number, number])}
+        thresholds={[{ v: 30, label: 'Clear enough' }]}
+        hint={(v) => (v <= 30 ? 'Clear enough to see aurora' : v <= 70 ? 'Partly cloudy: look for gaps' : 'Overcast')}
+      />
+      <p className="mt-2 text-[12px] text-ink-3">Shaded bands are the dark hours.</p>
 
       <div className="mt-6 divide-y divide-[rgb(255_255_255/0.06)]">
         <Row k="Confidence" v={d ? `${CONF[d.confidence]}${d.spread != null ? ` (±${d.spread}%)` : ''}` : '—'} />
@@ -150,7 +148,8 @@ export function ActivitySheet({ c, open, onClose }: { c: Conditions; open: boole
         <li>{sp.sentence}</li>
         <li>OVATION is NOAA's 30–90 min model of where aurora is right now. "Within view" counts aurora up to ~800 km away, low on the horizon.</li>
       </ul>
-      <p className="mt-5 text-[12px] text-ink-3">Full charts are on the Space tab.</p>
+      <KpChart c={c} />
+      <p className="mt-3 pb-4 text-[12px] text-ink-3">Tap Bz, solar wind or density on the Space tab for their own charts.</p>
     </Sheet>
   );
 }
